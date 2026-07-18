@@ -18,17 +18,19 @@ export function Layout() {
   const showDashboardReturn = isApprovedStudent(profile)
 
   return (
-    <div className="app-canvas relative min-h-svh overflow-x-hidden">
+    <>
       <Navbar />
-      {showAdminReturn ? <AdminReturnTab /> : null}
-      {showDashboardReturn ? <DashboardReturnTab /> : null}
-      <main className="site-main-offset relative z-10">
-        <PageTransition routeKey={location.pathname}>
-          <Outlet />
-        </PageTransition>
-      </main>
-      <Newsletter />
-      <Footer />
-    </div>
+      <div className="app-canvas relative min-h-svh">
+        {showAdminReturn ? <AdminReturnTab /> : null}
+        {showDashboardReturn ? <DashboardReturnTab /> : null}
+        <main className="site-main-offset relative z-10">
+          <PageTransition routeKey={location.pathname}>
+            <Outlet />
+          </PageTransition>
+        </main>
+        <Newsletter />
+        <Footer />
+      </div>
+    </>
   )
 }

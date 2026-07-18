@@ -10,6 +10,7 @@ import {
   AdminSplitLayout,
   AudiencePicker,
 } from '../../components/admin/AdminUi'
+import { useAdminToast } from '../../components/admin/AdminToastProvider'
 import type { AudienceMode } from '../../types/admin'
 import { AdminRecordActions } from '../../components/admin/AdminRecordActions'
 import { Button } from '../../components/ui/Button'
@@ -29,6 +30,7 @@ import { formatDateTime } from '../../types/student'
 
 export function AdminQuizzes() {
   const { profile } = useAuth()
+  const { notify } = useAdminToast()
   const [enrollments, setEnrollments] = useState<AdminEnrollment[]>([])
   const [quizzes, setQuizzes] = useState<Quiz[]>([])
   const [mode, setMode] = useState<AudienceMode>('individual')
@@ -42,7 +44,6 @@ export function AdminQuizzes() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
 
   const rosters = useMemo(() => groupEnrollmentsByInstrument(enrollments), [enrollments])
 
@@ -82,7 +83,6 @@ export function AdminQuizzes() {
 
     setSubmitting(true)
     setError(null)
-    setSuccess(null)
 
     try {
       if (editingId) {
@@ -91,7 +91,7 @@ export function AdminQuizzes() {
           description,
           scheduled_at: new Date(scheduledAt).toISOString(),
         })
-        setSuccess('Quiz updated.')
+        notify('Quiz updated.')
         resetForm()
         await load()
         return
@@ -110,7 +110,7 @@ export function AdminQuizzes() {
         created_by: profile.id,
       })
       resetForm()
-      setSuccess(`Quiz scheduled for ${count} student${count === 1 ? '' : 's'}.`)
+      notify(`Quiz scheduled for ${count} student${count === 1 ? '' : 's'}.`)
       await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save quiz')
@@ -124,7 +124,6 @@ export function AdminQuizzes() {
     setTitle(quiz.title)
     setDescription(quiz.description ?? '')
     setScheduledAt(toDatetimeLocalValue(quiz.scheduled_at))
-    setSuccess(null)
     setError(null)
   }
 
@@ -135,7 +134,7 @@ export function AdminQuizzes() {
     try {
       await deleteQuiz(quizId)
       if (editingId === quizId) resetForm()
-      setSuccess('Quiz deleted.')
+      notify('Quiz deleted.')
       await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not delete quiz')
@@ -151,7 +150,6 @@ export function AdminQuizzes() {
       <AdminPageIntro eyebrow="Assessment" title="Quizzes & tests" />
 
       {error ? <AdminAlert tone="error">{error}</AdminAlert> : null}
-      {success ? <AdminAlert tone="success">{success}</AdminAlert> : null}
 
       <AdminSplitLayout>
         <AdminFormPanel title={editingId ? 'Edit quiz' : 'Schedule quiz'}>

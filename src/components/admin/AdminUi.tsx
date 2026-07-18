@@ -93,8 +93,8 @@ export function AdminAlert({
 }) {
   const styles =
     tone === 'error'
-      ? 'border-red-500/25 bg-red-500/8 text-red-200'
-      : 'border-gold/25 bg-gold/8 text-gold'
+      ? 'border-[color:var(--status-danger-border)] bg-[color:var(--status-danger-bg)] text-[color:var(--status-danger-fg)]'
+      : 'border-gold/30 bg-gold/10 text-gold'
   return (
     <AdminCard padding="md">
       <p className={`text-sm ${styles} rounded-lg border px-4 py-3`}>{children}</p>
@@ -138,7 +138,7 @@ export function AdminListPanel({
           <p className="text-sm text-muted">{empty}</p>
         </AdminCardBody>
       ) : (
-        <ul className="divide-y divide-border">{children}</ul>
+        <ul className="divide-y divide-border pt-2">{children}</ul>
       )}
     </AdminCard>
   )

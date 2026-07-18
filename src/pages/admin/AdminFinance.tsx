@@ -9,6 +9,7 @@ import {
   AdminSplitLayout,
   SegmentTabs,
 } from '../../components/admin/AdminUi'
+import { useAdminToast } from '../../components/admin/AdminToastProvider'
 import { EnrollmentSelect } from '../../components/admin/EnrollmentSelect'
 import { Button } from '../../components/ui/Button'
 import { FormField } from '../../components/ui/FormField'
@@ -27,6 +28,7 @@ import { formatCurrency, formatDate, isInvoiceOwing } from '../../types/student'
 type FinanceTab = 'unpaid' | 'paid'
 
 export function AdminFinance() {
+  const { notify } = useAdminToast()
   const [enrollments, setEnrollments] = useState<AdminEnrollment[]>([])
   const [invoices, setInvoices] = useState<AdminInvoiceRow[]>([])
   const [tab, setTab] = useState<FinanceTab>('unpaid')
@@ -41,7 +43,6 @@ export function AdminFinance() {
   const [autoDueDate, setAutoDueDate] = useState(endOfMonthIso())
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
 
   async function load() {
     const [enr, inv] = await Promise.all([
@@ -83,7 +84,6 @@ export function AdminFinance() {
 
     setSubmitting(true)
     setError(null)
-    setSuccess(null)
 
     try {
       await createInvoice({
@@ -97,7 +97,7 @@ export function AdminFinance() {
       setAmount('')
       setDueDate('')
       setEnrollmentId('')
-      setSuccess('Invoice issued.')
+      notify('Invoice issued.')
       setTab('unpaid')
       await load()
     } catch (err) {
@@ -112,6 +112,7 @@ export function AdminFinance() {
     setError(null)
     try {
       await markInvoicePaid(invoiceId)
+      notify('Payment recorded.')
       await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not confirm payment')
@@ -126,12 +127,11 @@ export function AdminFinance() {
 
     setGenerating(true)
     setError(null)
-    setSuccess(null)
 
     try {
       const result = await generateMonthlyInvoices(autoMonth, autoDueDate)
-      setSuccess(
-        `Generated ${result.created} invoice${result.created === 1 ? '' : 's'}. Skipped ${result.skipped} (already billed or no fee).`,
+      notify(
+        `Generated ${result.created} invoice${result.created === 1 ? '' : 's'}. Skipped ${result.skipped}.`,
       )
       setTab('unpaid')
       await load()
@@ -147,6 +147,7 @@ export function AdminFinance() {
     setError(null)
     try {
       await markInvoiceUnpaid(invoiceId)
+      notify('Invoice marked unpaid.')
       setTab('unpaid')
       await load()
     } catch (err) {
@@ -163,7 +164,6 @@ export function AdminFinance() {
       <AdminPageIntro eyebrow="Accounts" title="Finance" />
 
       {error ? <AdminAlert tone="error">{error}</AdminAlert> : null}
-      {success ? <AdminAlert tone="success">{success}</AdminAlert> : null}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <AdminCard padding="md" className="border-gold/20">

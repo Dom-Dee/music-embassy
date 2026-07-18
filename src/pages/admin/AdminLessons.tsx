@@ -9,6 +9,7 @@ import {
   AdminSplitLayout,
   AudiencePicker,
 } from '../../components/admin/AdminUi'
+import { useAdminToast } from '../../components/admin/AdminToastProvider'
 import type { AudienceMode } from '../../types/admin'
 import { AdminRecordActions } from '../../components/admin/AdminRecordActions'
 import { FileUploadField } from '../../components/admin/FileUploadField'
@@ -29,6 +30,7 @@ import type { AdminEnrollment, AdminLessonRow } from '../../types/admin'
 import { formatDateTime } from '../../types/student'
 
 export function AdminLessons() {
+  const { notify } = useAdminToast()
   const [enrollments, setEnrollments] = useState<AdminEnrollment[]>([])
   const [lessons, setLessons] = useState<AdminLessonRow[]>([])
   const [mode, setMode] = useState<AudienceMode>('individual')
@@ -44,7 +46,6 @@ export function AdminLessons() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
 
   const rosters = useMemo(() => groupEnrollmentsByInstrument(enrollments), [enrollments])
 
@@ -86,7 +87,6 @@ export function AdminLessons() {
 
     setSubmitting(true)
     setError(null)
-    setSuccess(null)
 
     try {
       if (editingId) {
@@ -96,7 +96,7 @@ export function AdminLessons() {
           notes,
           video_url: videoUrl.trim() || undefined,
         })
-        setSuccess('Lesson updated.')
+        notify('Lesson updated.')
         resetForm()
         await load()
         return
@@ -117,7 +117,7 @@ export function AdminLessons() {
         attachment_urls: attachmentUrls,
       })
       resetForm()
-      setSuccess(`Lesson published to ${count} student${count === 1 ? '' : 's'}.`)
+      notify(`Lesson published to ${count} student${count === 1 ? '' : 's'}.`)
       await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save lesson')
@@ -133,7 +133,6 @@ export function AdminLessons() {
     setNotes(lesson.notes ?? '')
     setVideoUrl(lesson.video_url ?? '')
     setFiles([])
-    setSuccess(null)
     setError(null)
   }
 
@@ -144,7 +143,7 @@ export function AdminLessons() {
     try {
       await deleteLessonSession(lessonId)
       if (editingId === lessonId) resetForm()
-      setSuccess('Lesson deleted.')
+      notify('Lesson deleted.')
       await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not delete lesson')
@@ -160,7 +159,6 @@ export function AdminLessons() {
       <AdminPageIntro eyebrow="Curriculum" title="Lessons" />
 
       {error ? <AdminAlert tone="error">{error}</AdminAlert> : null}
-      {success ? <AdminAlert tone="success">{success}</AdminAlert> : null}
 
       <AdminSplitLayout>
         <AdminFormPanel title={editingId ? 'Edit lesson' : 'New lesson'}>

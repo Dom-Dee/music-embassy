@@ -1,4 +1,9 @@
-import type { Enrollment, Invoice, LessonSession } from './student'
+import type {
+  AssignmentSubmissionStatus,
+  Enrollment,
+  Invoice,
+  LessonSession,
+} from './student'
 
 export type AdminProfile = {
   id: string
@@ -32,6 +37,10 @@ export type Assignment = {
   student_id: string
   resource_url: string | null
   attachment_urls?: string[] | null
+  submission_notes?: string | null
+  submission_urls?: string[] | null
+  submitted_at?: string | null
+  submission_status?: AssignmentSubmissionStatus
   created_by: string | null
   created_at: string
   enrollments?: {

@@ -104,6 +104,128 @@ export function getTotalOwing(invoices: Invoice[]): number {
   return getOwingInvoices(invoices).reduce((sum, inv) => sum + Number(inv.amount), 0)
 }
 
+/** Students may edit/resubmit for this long after the first submission. */
+export const SUBMISSION_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000
+
+export function isAssignmentPending(assignment: Assignment): boolean {
+  return (assignment.submission_status ?? 'pending') === 'pending'
+}
+
+export function countPendingAssignments(assignments: Assignment[]): number {
+  return assignments.filter(isAssignmentPending).length
+}
+
+export function assignmentStatusLabel(
+  status: AssignmentSubmissionStatus | null | undefined,
+): string {
+  switch (status ?? 'pending') {
+    case 'pending':
+      return 'To do'
+    case 'submitted':
+      return 'Submitted'
+    case 'reviewed':
+      return 'Reviewed'
+  }
+}
+
+const ASSIGNMENT_STATUS_ORDER: Record<AssignmentSubmissionStatus, number> = {
+  pending: 0,
+  submitted: 1,
+  reviewed: 2,
+}
+
+export function assignmentWorkflowRank(
+  status: AssignmentSubmissionStatus | null | undefined,
+): number {
+  return ASSIGNMENT_STATUS_ORDER[status ?? 'pending']
+}
+
+/** To do first, then submitted, then reviewed. Within a group: soonest due / newest submit. */
+export function compareAssignmentsByWorkflow(a: Assignment, b: Assignment): number {
+  const rankDiff =
+    assignmentWorkflowRank(a.submission_status) -
+    assignmentWorkflowRank(b.submission_status)
+  if (rankDiff !== 0) return rankDiff
+
+  const status = a.submission_status ?? 'pending'
+  if (status === 'pending') {
+    const aDue = a.due_date ? new Date(a.due_date).getTime() : Number.POSITIVE_INFINITY
+    const bDue = b.due_date ? new Date(b.due_date).getTime() : Number.POSITIVE_INFINITY
+    if (aDue !== bDue) return aDue - bDue
+    return a.title.localeCompare(b.title)
+  }
+
+  const aSubmitted = a.submitted_at ? new Date(a.submitted_at).getTime() : 0
+  const bSubmitted = b.submitted_at ? new Date(b.submitted_at).getTime() : 0
+  if (aSubmitted !== bSubmitted) return bSubmitted - aSubmitted
+  return a.title.localeCompare(b.title)
+}
+
+export function sortAssignmentsByWorkflow<T extends Assignment>(assignments: T[]): T[] {
+  return [...assignments].sort(compareAssignmentsByWorkflow)
+}
+
+export function groupAssignmentsByWorkflow<T extends Assignment>(
+  assignments: T[],
+): { status: AssignmentSubmissionStatus; label: string; items: T[] }[] {
+  const sorted = sortAssignmentsByWorkflow(assignments)
+  const groups: {
+    status: AssignmentSubmissionStatus
+    label: string
+    items: T[]
+  }[] = [
+    { status: 'pending', label: 'To do', items: [] },
+    { status: 'submitted', label: 'Submitted', items: [] },
+    { status: 'reviewed', label: 'Reviewed', items: [] },
+  ]
+
+  for (const assignment of sorted) {
+    const status = assignment.submission_status ?? 'pending'
+    const group = groups.find((entry) => entry.status === status)
+    group?.items.push(assignment)
+  }
+
+  return groups.filter((group) => group.items.length > 0)
+}
+
+export function submissionEditDeadlineMs(assignment: Assignment): number | null {
+  if (!assignment.submitted_at) return null
+  return new Date(assignment.submitted_at).getTime() + SUBMISSION_EDIT_WINDOW_MS
+}
+
+/** True while status is submitted and still inside the 24-hour edit window. */
+export function canEditAssignmentSubmission(
+  assignment: Assignment,
+  nowMs: number = Date.now(),
+): boolean {
+  if ((assignment.submission_status ?? 'pending') !== 'submitted') return false
+  const deadline = submissionEditDeadlineMs(assignment)
+  if (deadline === null) return false
+  return nowMs < deadline
+}
+
+export function formatSubmissionEditRemaining(
+  assignment: Assignment,
+  nowMs: number = Date.now(),
+): string | null {
+  const deadline = submissionEditDeadlineMs(assignment)
+  if (deadline === null) return null
+  const remainingMs = deadline - nowMs
+  if (remainingMs <= 0) return null
+
+  const totalMinutes = Math.ceil(remainingMs / (60 * 1000))
+  if (totalMinutes < 60) {
+    return `${totalMinutes} minute${totalMinutes === 1 ? '' : 's'} left to edit`
+  }
+
+  const hours = Math.floor(totalMinutes / 60)
+  const minutes = totalMinutes % 60
+  if (minutes === 0) {
+    return `${hours} hour${hours === 1 ? '' : 's'} left to edit`
+  }
+  return `${hours}h ${minutes}m left to edit`
+}
+
 export function buildInstrumentPaths(
   enrollments: Enrollment[],
   lessons: LessonSession[],

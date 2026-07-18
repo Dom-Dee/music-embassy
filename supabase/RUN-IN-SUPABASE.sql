@@ -390,7 +390,10 @@ begin
 end;
 $$;
 
--- Students submit assignments via RPC (submission fields only)
+-- Students submit / resubmit assignments via RPC (submission fields only).
+-- First submit: status must be pending.
+-- Resubmit: allowed for 24 hours after submitted_at while status is still 'submitted'.
+-- Locked once reviewed, or after the 24-hour edit window.
 create or replace function public.submit_assignment(
   p_assignment_id uuid,
   p_notes text,
@@ -401,23 +404,53 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  current_status text;
+  first_submitted_at timestamptz;
 begin
   if auth.uid() is null then
     raise exception 'Not authenticated';
   end if;
 
-  update public.assignments
-  set
-    submission_notes = nullif(trim(p_notes), ''),
-    submission_urls = coalesce(p_urls, '{}'),
-    submitted_at = now(),
-    submission_status = 'submitted'
+  select coalesce(submission_status, 'pending'), submitted_at
+    into current_status, first_submitted_at
+  from public.assignments
   where id = p_assignment_id
     and student_id = auth.uid()
-    and coalesce(submission_status, 'pending') = 'pending';
+  for update;
 
   if not found then
-    raise exception 'Assignment not found or already submitted';
+    raise exception 'Assignment not found';
+  end if;
+
+  if current_status = 'reviewed' then
+    raise exception 'This submission has been reviewed and can no longer be edited';
+  end if;
+
+  if current_status = 'submitted' then
+    if first_submitted_at is null
+       or first_submitted_at < (now() - interval '24 hours') then
+      raise exception 'The 24-hour edit window for this submission has closed';
+    end if;
+
+    update public.assignments
+    set
+      submission_notes = nullif(trim(p_notes), ''),
+      submission_urls = coalesce(p_urls, '{}'),
+      submission_status = 'submitted'
+    where id = p_assignment_id
+      and student_id = auth.uid();
+  elsif current_status = 'pending' then
+    update public.assignments
+    set
+      submission_notes = nullif(trim(p_notes), ''),
+      submission_urls = coalesce(p_urls, '{}'),
+      submitted_at = now(),
+      submission_status = 'submitted'
+    where id = p_assignment_id
+      and student_id = auth.uid();
+  else
+    raise exception 'Assignment cannot be submitted in its current state';
   end if;
 end;
 $$;
@@ -484,3 +517,73 @@ create policy "Students can read portal materials"
       )
     )
   );
+
+
+-- ── 12) ASSIGNMENT RESUBMIT WINDOW — 24 hours after first submit ──
+-- Re-run this section alone if section 11 was already applied earlier.
+-- Students may edit/resubmit while status is 'submitted' and within 24h of submitted_at.
+-- Locked after review, or after the window closes. First submitted_at is preserved.
+
+create or replace function public.submit_assignment(
+  p_assignment_id uuid,
+  p_notes text,
+  p_urls text[]
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  current_status text;
+  first_submitted_at timestamptz;
+begin
+  if auth.uid() is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  select coalesce(submission_status, 'pending'), submitted_at
+    into current_status, first_submitted_at
+  from public.assignments
+  where id = p_assignment_id
+    and student_id = auth.uid()
+  for update;
+
+  if not found then
+    raise exception 'Assignment not found';
+  end if;
+
+  if current_status = 'reviewed' then
+    raise exception 'This submission has been reviewed and can no longer be edited';
+  end if;
+
+  if current_status = 'submitted' then
+    if first_submitted_at is null
+       or first_submitted_at < (now() - interval '24 hours') then
+      raise exception 'The 24-hour edit window for this submission has closed';
+    end if;
+
+    update public.assignments
+    set
+      submission_notes = nullif(trim(p_notes), ''),
+      submission_urls = coalesce(p_urls, '{}'),
+      submission_status = 'submitted'
+    where id = p_assignment_id
+      and student_id = auth.uid();
+  elsif current_status = 'pending' then
+    update public.assignments
+    set
+      submission_notes = nullif(trim(p_notes), ''),
+      submission_urls = coalesce(p_urls, '{}'),
+      submitted_at = now(),
+      submission_status = 'submitted'
+    where id = p_assignment_id
+      and student_id = auth.uid();
+  else
+    raise exception 'Assignment cannot be submitted in its current state';
+  end if;
+end;
+$$;
+
+revoke all on function public.submit_assignment(uuid, text, text[]) from public;
+grant execute on function public.submit_assignment(uuid, text, text[]) to authenticated;

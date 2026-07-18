@@ -9,8 +9,14 @@ import {
   AdminRecordCard,
   AdminSplitLayout,
   AudiencePicker,
+  SegmentTabs,
 } from '../../components/admin/AdminUi'
-import type { AudienceMode } from '../../types/admin'
+import {
+  AssignmentSubmissionBadge,
+  AssignmentSubmissionReview,
+  submissionStatusOf,
+} from '../../components/admin/AssignmentSubmissionReview'
+import { useAdminToast } from '../../components/admin/AdminToastProvider'
 import { AdminRecordActions } from '../../components/admin/AdminRecordActions'
 import { FileUploadField } from '../../components/admin/FileUploadField'
 import { Button } from '../../components/ui/Button'
@@ -21,22 +27,29 @@ import {
   fetchAdminAssignments,
   fetchAdminEnrollments,
   groupEnrollmentsByInstrument,
+  markAssignmentReviewed,
   resolveAudienceEnrollments,
   updateAssignment,
 } from '../../lib/adminData'
 import { uploadPortalFiles } from '../../lib/uploadPortalFile'
-import type { AdminEnrollment, Assignment } from '../../types/admin'
-import { formatDate } from '../../types/student'
+import type { AdminEnrollment, Assignment, AudienceMode } from '../../types/admin'
+import { formatDate, sortAssignmentsByWorkflow } from '../../types/student'
+
+type SubmissionFilter = 'all' | 'submitted' | 'pending' | 'reviewed'
 
 export function AdminAssignments() {
   const { profile } = useAuth()
+  const { notify } = useAdminToast()
   const [enrollments, setEnrollments] = useState<AdminEnrollment[]>([])
   const [assignments, setAssignments] = useState<Assignment[]>([])
+  const [filter, setFilter] = useState<SubmissionFilter>('all')
+  const [filterInitialized, setFilterInitialized] = useState(false)
   const [mode, setMode] = useState<AudienceMode>('individual')
   const [enrollmentId, setEnrollmentId] = useState('')
   const [instrumentId, setInstrumentId] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [reviewingId, setReviewingId] = useState<string | null>(null)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [dueDate, setDueDate] = useState('')
@@ -45,9 +58,25 @@ export function AdminAssignments() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
 
   const rosters = useMemo(() => groupEnrollmentsByInstrument(enrollments), [enrollments])
+
+  const submissionCounts = useMemo(
+    () => ({
+      submitted: assignments.filter((a) => submissionStatusOf(a) === 'submitted').length,
+      pending: assignments.filter((a) => submissionStatusOf(a) === 'pending').length,
+      reviewed: assignments.filter((a) => submissionStatusOf(a) === 'reviewed').length,
+    }),
+    [assignments],
+  )
+
+  const visibleAssignments = useMemo(() => {
+    const filtered =
+      filter === 'all'
+        ? assignments
+        : assignments.filter((assignment) => submissionStatusOf(assignment) === filter)
+    return sortAssignmentsByWorkflow(filtered)
+  }, [assignments, filter])
 
   function resetForm() {
     setEditingId(null)
@@ -81,13 +110,20 @@ export function AdminAssignments() {
     })()
   }, [])
 
+  useEffect(() => {
+    if (filterInitialized || assignments.length === 0) return
+    if (submissionCounts.submitted > 0) {
+      setFilter('submitted')
+    }
+    setFilterInitialized(true)
+  }, [assignments.length, filterInitialized, submissionCounts.submitted])
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!profile || !title) return
 
     setSubmitting(true)
     setError(null)
-    setSuccess(null)
 
     try {
       if (editingId) {
@@ -97,7 +133,7 @@ export function AdminAssignments() {
           due_date: dueDate || undefined,
           resource_url: resourceUrl.trim() || undefined,
         })
-        setSuccess('Assignment updated.')
+        notify('Assignment updated.')
         resetForm()
         await load()
         return
@@ -119,7 +155,9 @@ export function AdminAssignments() {
         created_by: profile.id,
       })
       resetForm()
-      setSuccess(`Assignment sent to ${count} student${count === 1 ? '' : 's'}.`)
+      notify(
+        `Assignment published to ${count} student${count === 1 ? '' : 's'}.`,
+      )
       await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save assignment')
@@ -135,7 +173,6 @@ export function AdminAssignments() {
     setDueDate(assignment.due_date ?? '')
     setResourceUrl(assignment.resource_url ?? '')
     setFiles([])
-    setSuccess(null)
     setError(null)
   }
 
@@ -146,7 +183,7 @@ export function AdminAssignments() {
     try {
       await deleteAssignment(assignmentId)
       if (editingId === assignmentId) resetForm()
-      setSuccess('Assignment deleted.')
+      notify('Assignment deleted.')
       await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not delete assignment')
@@ -155,14 +192,46 @@ export function AdminAssignments() {
     }
   }
 
+  async function handleMarkReviewed(assignment: Assignment) {
+    setReviewingId(assignment.id)
+    setError(null)
+    try {
+      await markAssignmentReviewed(assignment)
+      notify(`Marked "${assignment.title}" as reviewed.`)
+      await load()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not mark submission as reviewed')
+    } finally {
+      setReviewingId(null)
+    }
+  }
+
   if (loading) return <p className="text-sm text-muted">Loading assignments…</p>
 
   return (
     <AdminPage>
-      <AdminPageIntro eyebrow="Homework" title="Assignments" />
+      <AdminPageIntro
+        eyebrow="Homework"
+        title="Assignments"
+        description={
+          submissionCounts.submitted > 0
+            ? `${submissionCounts.submitted} submission${submissionCounts.submitted === 1 ? '' : 's'} ready for your review.`
+            : 'Publish homework and review what students submit.'
+        }
+      />
 
       {error ? <AdminAlert tone="error">{error}</AdminAlert> : null}
-      {success ? <AdminAlert tone="success">{success}</AdminAlert> : null}
+
+      <SegmentTabs
+        tabs={[
+          { id: 'all', label: 'All', count: assignments.length },
+          { id: 'submitted', label: 'Awaiting review', count: submissionCounts.submitted },
+          { id: 'pending', label: 'Not submitted', count: submissionCounts.pending },
+          { id: 'reviewed', label: 'Reviewed', count: submissionCounts.reviewed },
+        ]}
+        active={filter}
+        onChange={setFilter}
+      />
 
       <AdminSplitLayout>
         <AdminFormPanel title={editingId ? 'Edit assignment' : 'New assignment'}>
@@ -239,10 +308,24 @@ export function AdminAssignments() {
 
         <AdminListPanel
           eyebrow="Published"
-          title="Recent assignments"
-          empty={assignments.length === 0 ? 'No assignments published yet.' : undefined}
+          title={
+            filter === 'submitted'
+              ? 'Submissions awaiting review'
+              : filter === 'pending'
+                ? 'Awaiting student submission'
+                : filter === 'reviewed'
+                  ? 'Reviewed submissions'
+                  : 'Recent assignments'
+          }
+          empty={
+            visibleAssignments.length === 0
+              ? filter === 'all'
+                ? 'No assignments published yet.'
+                : 'No assignments match this filter.'
+              : undefined
+          }
         >
-          {assignments.map((assignment) => (
+          {visibleAssignments.map((assignment) => (
             <AdminRecordCard
               key={assignment.id}
               title={assignment.title}
@@ -256,9 +339,19 @@ export function AdminAssignments() {
                 />
               }
               body={
-                assignment.description ? (
-                  <p className="text-sm leading-relaxed text-muted">{assignment.description}</p>
-                ) : undefined
+                <>
+                  <div className="mb-3">
+                    <AssignmentSubmissionBadge assignment={assignment} />
+                  </div>
+                  {assignment.description ? (
+                    <p className="text-sm leading-relaxed text-muted">{assignment.description}</p>
+                  ) : null}
+                  <AssignmentSubmissionReview
+                    assignment={assignment}
+                    reviewing={reviewingId === assignment.id}
+                    onMarkReviewed={() => void handleMarkReviewed(assignment)}
+                  />
+                </>
               }
             />
           ))}

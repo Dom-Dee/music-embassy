@@ -8,6 +8,7 @@ export type SummaryItemData = {
   detail: string
   icon: ReactNode
   emphasis?: boolean
+  highlight?: boolean
   onClick?: () => void
   active?: boolean
 }
@@ -18,6 +19,7 @@ function SummaryItem({
   detail,
   icon,
   emphasis,
+  highlight,
   onClick,
   active,
 }: SummaryItemData) {
@@ -35,8 +37,8 @@ function SummaryItem({
       </div>
       <div className="min-w-0">
         <p
-          className={`font-display text-3xl leading-none tracking-tight md:text-[2rem] ${
-            emphasis ? 'text-gold' : 'text-fg'
+          className={`font-display text-3xl leading-none tracking-tight tabular-nums md:text-[2rem] ${
+            emphasis || highlight ? 'text-gold' : 'text-fg'
           }`}
         >
           {value}
@@ -50,7 +52,7 @@ function SummaryItem({
     interactive
       ? 'cursor-pointer hover:bg-gold/[0.04] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-gold/45'
       : ''
-  } ${active ? 'bg-gold/[0.06]' : ''}`
+  } ${active || highlight ? 'bg-gold/[0.06]' : ''}`
 
   if (interactive) {
     return (

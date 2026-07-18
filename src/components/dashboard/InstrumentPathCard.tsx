@@ -1,15 +1,17 @@
 import { motion } from 'framer-motion'
 import { useNow } from '../../hooks/useNow'
-import { isDueOnOrAfter, isScheduledOnOrAfter } from '../../lib/portalTime'
+import { isScheduledOnOrAfter } from '../../lib/portalTime'
 import type { DashboardFocus } from './DashboardDetailPanel'
 import type { InstrumentPath } from '../../types/student'
 import { getInstrumentImageUrl } from '../../lib/instrumentImages'
 import {
+  countPendingAssignments,
   formatCurrency,
   formatDate,
   formatDateTime,
   getOwingInvoices,
   getTotalOwing,
+  isAssignmentPending,
 } from '../../types/student'
 
 const ease = [0.22, 1, 0.36, 1] as const
@@ -19,20 +21,25 @@ type SummaryTileProps = {
   value: string
   detail: string
   onClick: () => void
+  highlight?: boolean
 }
 
-function SummaryTile({ label, value, detail, onClick }: SummaryTileProps) {
+function SummaryTile({ label, value, detail, onClick, highlight }: SummaryTileProps) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="flex h-full flex-col justify-between p-5 text-left transition hover:bg-gold/[0.04] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-gold/45 md:p-6"
+      className={`flex h-full flex-col justify-between p-5 text-left transition hover:bg-gold/[0.04] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-gold/45 md:p-6 ${
+        highlight ? 'bg-gold/[0.04]' : ''
+      }`}
     >
       <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-gold/85">
         {label}
       </p>
       <div className="mt-4">
-        <p className="font-display text-xl text-fg">{value}</p>
+        <p className={`font-display text-xl tabular-nums ${highlight ? 'text-gold' : 'text-fg'}`}>
+          {value}
+        </p>
         <p className="mt-1.5 text-sm leading-snug text-muted">{detail}</p>
       </div>
     </button>
@@ -74,10 +81,8 @@ export function InstrumentPathCard({
         new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime(),
     )
 
-  const openAssignments = assignments.filter((assignment) => {
-    if (!assignment.due_date) return true
-    return isDueOnOrAfter(assignment.due_date, nowMs)
-  })
+  const pendingAssignments = assignments.filter(isAssignmentPending)
+  const pendingCount = countPendingAssignments(assignments)
 
   const lessonsValue =
     lessons.length === 0
@@ -93,15 +98,16 @@ export function InstrumentPathCard({
         ? `Next: ${upcomingLessons[0].title}`
         : `${lessons.length} on your register`
 
-  const assignmentsValue =
-    assignments.length === 0 ? 'None yet' : String(openAssignments.length || assignments.length)
+  const assignmentsValue = String(pendingCount)
 
   const assignmentsDetail =
     assignments.length === 0
-      ? 'Nothing due right now'
-      : openAssignments[0]
-        ? `${openAssignments[0].title}${openAssignments[0].due_date ? ` · due ${formatDate(openAssignments[0].due_date)}` : ''}`
-        : `${assignments.length} on record`
+      ? 'Nothing assigned yet'
+      : pendingCount === 0
+        ? 'All caught up'
+        : pendingAssignments[0]
+          ? `${pendingAssignments[0].title}${pendingAssignments[0].due_date ? ` · due ${formatDate(pendingAssignments[0].due_date)}` : ''}`
+          : 'Ready to submit'
 
   const quizzesValue =
     quizzes.length === 0 ? 'None yet' : String(upcomingQuizzes.length || quizzes.length)
@@ -196,6 +202,7 @@ export function InstrumentPathCard({
           value={assignmentsValue}
           detail={assignmentsDetail}
           onClick={() => onOpenSection('assignments', instrumentId)}
+          highlight={pendingCount > 0}
         />
       </div>
     </motion.article>

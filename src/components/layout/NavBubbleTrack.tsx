@@ -68,7 +68,7 @@ export function NavBubbleTrack({ pathname, onNavigate }: NavBubbleTrackProps) {
 
   return (
     <LayoutGroup id="site-nav-bubble">
-      <nav className="nav-bubble-track relative hidden items-center gap-1.5 md:flex">
+      <nav className="nav-bubble-track pointer-events-auto relative hidden items-center gap-1.5 md:flex">
         {links.map((l) => {
           const active = pathname === l.to
           return (

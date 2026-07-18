@@ -191,3 +191,66 @@ export function IconMusic({ className }: IconProps) {
     </svg>
   )
 }
+
+export function IconSun({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+    </svg>
+  )
+}
+
+export function IconMoon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+      <path d="M21 14.5A8.5 8.5 0 1111.5 3a7 7 0 1010 11.5z" />
+    </svg>
+  )
+}
+
+export function IconMonitor({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+      <rect x="3" y="4" width="18" height="12" rx="2" />
+      <path d="M8 20h8M12 16v4" />
+    </svg>
+  )
+}
+
+export function IconSettings({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.66 1.66M17.41 17.41l1.66 1.66M2 12h2M20 12h2M4.93 19.07l1.66-1.66M17.41 6.59l1.66-1.66" />
+    </svg>
+  )
+}
+
+export function IconLogout({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+      <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" />
+    </svg>
+  )
+}
+
+export function IconFeedback({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M8 14s1.5 2 4 2 4-2 4-2" />
+      <circle cx="9" cy="10" r="1" fill="currentColor" stroke="none" />
+      <circle cx="15" cy="10" r="1" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
+export function IconUser({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 20c1.5-4 6-6 8-6s6.5 2 8 6" />
+    </svg>
+  )
+}

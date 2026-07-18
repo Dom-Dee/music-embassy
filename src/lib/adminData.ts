@@ -62,9 +62,38 @@ export function groupEnrollmentsByInstrument(
     }
   }
 
-  return [...map.values()].sort((a, b) =>
-    a.instrumentName.localeCompare(b.instrumentName),
-  )
+  return [...map.values()]
+    .map((roster) => ({
+      ...roster,
+      enrollments: [...roster.enrollments].sort((a, b) =>
+        (a.student?.full_name ?? '').localeCompare(b.student?.full_name ?? ''),
+      ),
+    }))
+    .sort((a, b) => a.instrumentName.localeCompare(b.instrumentName))
+}
+
+export function sortEnrollmentsByName(
+  enrollments: AdminEnrollment[],
+): AdminEnrollment[] {
+  return [...enrollments].sort((a, b) => {
+    const nameDiff = (a.student?.full_name ?? '').localeCompare(
+      b.student?.full_name ?? '',
+    )
+    if (nameDiff !== 0) return nameDiff
+    return (a.instruments?.name ?? '').localeCompare(b.instruments?.name ?? '')
+  })
+}
+
+export function sortEnrollmentsByInstrumentThenName(
+  enrollments: AdminEnrollment[],
+): AdminEnrollment[] {
+  return [...enrollments].sort((a, b) => {
+    const instrumentDiff = (a.instruments?.name ?? '').localeCompare(
+      b.instruments?.name ?? '',
+    )
+    if (instrumentDiff !== 0) return instrumentDiff
+    return (a.student?.full_name ?? '').localeCompare(b.student?.full_name ?? '')
+  })
 }
 
 export async function fetchAdminOverview(): Promise<AdminOverview> {
@@ -255,6 +284,33 @@ export async function deleteAssignment(id: string): Promise<void> {
   await requireAdminProfile()
   const { error } = await supabase.from('assignments').delete().eq('id', id)
   if (error) throw new Error(error.message)
+}
+
+export async function markAssignmentReviewed(assignment: Assignment): Promise<void> {
+  await requireAdminProfile()
+  const { data, error } = await supabase
+    .from('assignments')
+    .update({ submission_status: 'reviewed' })
+    .eq('id', assignment.id)
+    .eq('submission_status', 'submitted')
+    .select('id')
+
+  if (error) throw new Error(error.message)
+  if (!data?.length) throw new Error('Submission is no longer awaiting review')
+
+  await publishStudentNotifications(
+    [
+      {
+        student_id: assignment.student_id,
+        student: assignment.student ?? null,
+      },
+    ],
+    {
+      type: 'assignment',
+      title: 'Assignment reviewed',
+      body: `Your submission for "${assignment.title}" has been reviewed by your instructor.`,
+    },
+  )
 }
 
 export async function fetchAdminQuizzes(): Promise<Quiz[]> {

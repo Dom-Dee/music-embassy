@@ -4,6 +4,7 @@ import { useAuth } from '../../auth/useAuth'
 import { formatFirstName } from '../../lib/formatName'
 import { PREMIUM_EASE } from '../../lib/motion'
 import { AdminCard } from './AdminUi'
+import { AdminToastProvider } from './AdminToastProvider'
 
 const tabs: { to: string; label: string; end?: boolean }[] = [
   { to: '/admin', label: 'Overview', end: true },
@@ -35,12 +36,14 @@ export function AdminShell() {
   const firstName = profile?.full_name ? formatFirstName(profile.full_name) : 'Admin'
 
   return (
-    <div className="relative -mx-6 px-6 pb-12 lg:-mx-8 lg:px-8">
+    <AdminToastProvider>
+      <div className="relative -mx-6 px-6 pb-12 lg:-mx-8 lg:px-8">
       <div className="mx-auto max-w-7xl space-y-6">
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.45, ease: PREMIUM_EASE }}
+          className="portal-shell-nav sticky z-40"
         >
         <AdminCard padding="none">
           <div className="flex flex-wrap items-start justify-between gap-6 px-6 py-6 md:px-8 md:py-7">
@@ -61,7 +64,7 @@ export function AdminShell() {
           </div>
 
           <nav
-            className="flex gap-1 overflow-x-auto border-t border-border bg-page/20 px-3 py-2 md:px-4"
+            className="flex gap-1 overflow-x-auto border-t border-border bg-[var(--nav-scrolled-bg)] px-3 py-2 md:px-4"
             aria-label="Admin sections"
           >
             {tabs.map((tab) => {
@@ -99,6 +102,7 @@ export function AdminShell() {
           <Outlet />
         </AdminCard>
       </div>
-    </div>
+      </div>
+    </AdminToastProvider>
   )
 }

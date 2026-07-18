@@ -24,7 +24,7 @@ import { useStudentDashboard } from '../../hooks/useStudentDashboard'
 import { formatFirstName } from '../../lib/formatName'
 import { countUpcomingQuizzes } from '../../lib/portalTime'
 import { sendPaymentReminderEmail } from '../../lib/paymentReminder'
-import { formatCurrency } from '../../types/student'
+import { countPendingAssignments, formatCurrency } from '../../types/student'
 
 const ease = [0.22, 1, 0.36, 1] as const
 
@@ -66,8 +66,8 @@ export function StudentDashboard() {
   const owingIds = owingInvoices.map((i) => i.id).join(',')
   const currency = owingInvoices[0]?.currency ?? 'GHS'
   const totalLessons = instrumentPaths.reduce((n, p) => n + p.lessons.length, 0)
-  const totalAssignments = instrumentPaths.reduce(
-    (n, p) => n + p.assignments.length,
+  const pendingAssignments = instrumentPaths.reduce(
+    (n, p) => n + countPendingAssignments(p.assignments),
     0,
   )
   const nowMs = useNow()
@@ -193,11 +193,15 @@ export function StudentDashboard() {
               },
               {
                 label: 'Assignments',
-                value: loading ? '…' : String(totalAssignments),
-                detail: 'From your instructors',
+                value: loading ? '…' : String(pendingAssignments),
+                detail:
+                  pendingAssignments === 0
+                    ? 'All caught up'
+                    : `${pendingAssignments} to complete`,
                 icon: <IconBarChart className="h-4 w-4" />,
                 onClick: () => openDashboardFocus('assignments'),
                 active: dashboardFocus === 'assignments',
+                highlight: pendingAssignments > 0,
               },
               {
                 label: 'Quizzes',
