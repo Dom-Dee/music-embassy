@@ -25,7 +25,7 @@ type SiteHeaderInnerProps = {
 export function SiteHeaderInner({ children, className = '' }: SiteHeaderInnerProps) {
   return (
     <div
-      className={`site-header-inner relative mx-auto flex h-[4.5rem] max-w-7xl items-center px-6 lg:px-8 ${className}`.trim()}
+      className={`site-header-inner relative mx-auto flex h-[4.5rem] max-w-7xl items-center px-6 pr-[5.75rem] lg:px-8 lg:pr-8 ${className}`.trim()}
     >
       {children}
     </div>

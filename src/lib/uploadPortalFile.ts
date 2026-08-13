@@ -8,7 +8,17 @@ function sanitizeFileName(name: string): string {
   return name.replace(/[^\w.\-()+\s]/g, '_').replace(/\s+/g, '-')
 }
 
-export type UploadFolder = 'lessons' | 'assignments' | 'assignment-submissions'
+export type UploadFolder =
+  | 'lessons'
+  | 'assignments'
+  | 'assignment-submissions'
+  | 'events'
+  | 'gallery'
+
+const FOLDER_MAX_BYTES: Partial<Record<UploadFolder, number>> = {
+  events: 100 * 1024 * 1024,
+  gallery: 100 * 1024 * 1024,
+}
 
 export async function uploadPortalFiles(
   files: File[],
@@ -24,8 +34,10 @@ export async function uploadPortalFiles(
   const urls: string[] = []
 
   for (const file of files) {
-    if (file.size > MAX_FILE_BYTES) {
-      throw new Error(`"${file.name}" is too large. Maximum size is 25 MB.`)
+    const maxBytes = FOLDER_MAX_BYTES[folder] ?? MAX_FILE_BYTES
+    const maxLabel = maxBytes >= 100 * 1024 * 1024 ? '100 MB' : '25 MB'
+    if (file.size > maxBytes) {
+      throw new Error(`"${file.name}" is too large. Maximum size is ${maxLabel}.`)
     }
 
     const path =

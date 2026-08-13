@@ -1,21 +1,45 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { useMemo, useState } from 'react'
-import { featuredTracks, showcaseItems } from '../data/content'
+import { useEffect, useMemo, useState } from 'react'
+import { featuredTracks, showcaseItems as staticShowcaseItems } from '../data/content'
 import { images } from '../data/images'
+import { SiteMediaDisplay } from '../components/site/SiteMediaDisplay'
 import { SectionHeading } from '../components/ui/SectionHeading'
 import { Button } from '../components/ui/Button'
 import { IconPause, IconPlay } from '../components/icons'
+import { fetchPublishedGalleryItems } from '../lib/siteMediaData'
 import { heroContainer, heroItem } from '../lib/motion'
+import type { GalleryItem } from '../types/siteMedia'
+import { GALLERY_TAGS } from '../types/siteMedia'
 
-const filters = [
-  'All',
-  'Performance',
-  'Studio',
-  'Education',
-  'Showcase',
-  'Community',
-  'Workshop',
-] as const
+const filters = ['All', ...GALLERY_TAGS] as const
+
+type DisplayGalleryItem = {
+  id: string
+  title: string
+  tag: string
+  media_url?: string | null
+  media_type?: GalleryItem['media_type']
+  fallbackImage?: string
+}
+
+function toDisplayGallery(items: GalleryItem[]): DisplayGalleryItem[] {
+  return items.map((item) => ({
+    id: item.id,
+    title: item.title,
+    tag: item.tag ?? 'Showcase',
+    media_url: item.media_url,
+    media_type: item.media_type,
+  }))
+}
+
+function staticDisplayGallery(): DisplayGalleryItem[] {
+  return staticShowcaseItems.map((item) => ({
+    id: item.id,
+    title: item.title,
+    tag: item.tag,
+    fallbackImage: item.img,
+  }))
+}
 
 const rhythmChips = [
   'Curated sets',
@@ -34,11 +58,25 @@ const statLine = [
 export function MusicShowcase() {
   const [active, setActive] = useState<(typeof filters)[number]>('All')
   const [playingId, setPlayingId] = useState<string | null>(null)
+  const [galleryItems, setGalleryItems] = useState<DisplayGalleryItem[]>(staticDisplayGallery())
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const live = await fetchPublishedGalleryItems()
+        if (live.length > 0) {
+          setGalleryItems(toDisplayGallery(live))
+        }
+      } catch {
+        // Keep curated fallback gallery when Supabase is unavailable.
+      }
+    })()
+  }, [])
 
   const filtered = useMemo(() => {
-    if (active === 'All') return showcaseItems
-    return showcaseItems.filter((x) => x.tag === active)
-  }, [active])
+    if (active === 'All') return galleryItems
+    return galleryItems.filter((x) => x.tag === active)
+  }, [active, galleryItems])
 
   function togglePlay(id: string) {
     setPlayingId((p) => (p === id ? null : id))
@@ -156,7 +194,7 @@ export function MusicShowcase() {
           />
           <div
             className="music-scroll -mx-6 flex gap-6 overflow-x-auto px-6 pb-4 pt-2 md:mx-0 md:px-0"
-            style={{ scrollSnapType: 'x mandatory' }}
+            style={{ scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}
           >
             {featuredTracks.map((track, i) => {
               const playing = playingId === track.id
@@ -285,7 +323,7 @@ export function MusicShowcase() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.22 }}
-              className="columns-1 gap-8 sm:columns-2 lg:columns-3"
+              className="gallery-grid"
             >
               {filtered.map((item, i) => (
                 <motion.div
@@ -298,7 +336,7 @@ export function MusicShowcase() {
                     duration: 0.45,
                     ease: [0.22, 1, 0.36, 1] as const,
                   }}
-                  className="mb-8 break-inside-avoid"
+                  className="gallery-grid__item"
                 >
                   <article className="group relative overflow-hidden rounded-2xl border border-border bg-glass shadow-[var(--shadow-card)] ring-1 ring-border/80 backdrop-blur-sm transition-[border-color,box-shadow,transform] duration-300 hover:-translate-y-1 hover:border-gold/22 hover:shadow-[var(--shadow-card-hover)]">
                     <div
@@ -306,11 +344,20 @@ export function MusicShowcase() {
                         i % 3 === 1 ? 'aspect-[4/5]' : 'aspect-[3/4]'
                       }`}
                     >
-                      <img
-                        src={item.img}
-                        alt=""
-                        className="h-full w-full object-cover transition duration-700 group-hover:scale-[1.05]"
-                      />
+                      {item.media_url ? (
+                        <SiteMediaDisplay
+                          reference={item.media_url}
+                          mediaType={item.media_type}
+                          alt={item.title}
+                          className="h-full w-full object-cover transition duration-700 group-hover:scale-[1.05]"
+                        />
+                      ) : (
+                        <img
+                          src={item.fallbackImage}
+                          alt=""
+                          className="h-full w-full object-cover transition duration-700 group-hover:scale-[1.05]"
+                        />
+                      )}
                       <div className="absolute inset-0 bg-gradient-to-t from-page via-page/50 to-transparent opacity-95" />
                       <div className="absolute inset-0 opacity-0 transition duration-300 group-hover:opacity-100">
                         <div className="absolute inset-0 bg-gradient-to-br from-gold/15 to-transparent" />

@@ -1,18 +1,67 @@
 import { motion } from 'framer-motion'
-import { events } from '../data/content'
+import { useEffect, useMemo, useState } from 'react'
+import { events as staticEvents } from '../data/content'
 import { images } from '../data/images'
+import { SiteMediaDisplay } from '../components/site/SiteMediaDisplay'
 import { Button } from '../components/ui/Button'
 import { IconCalendar } from '../components/icons'
+import { fetchPublishedSiteEvents } from '../lib/siteMediaData'
 import { heroContainer, heroItem } from '../lib/motion'
+import type { SiteEvent } from '../types/siteMedia'
+import { parseEventDateParts } from '../types/siteMedia'
 
-const eventImages = [images.live, images.crowd, images.studio]
+const eventFallbackImages = [images.live, images.crowd, images.studio]
 
-function parseDateParts(dateStr: string) {
-  const parts = dateStr.split(' ')
-  return { month: parts[0].toUpperCase(), day: parts[1].replace(',', '') }
+type DisplayEvent = {
+  id: string
+  title: string
+  description: string
+  date: string
+  media_url?: string | null
+  media_type?: SiteEvent['media_type']
+  fallbackImage?: string
+}
+
+function toDisplayEvents(items: SiteEvent[]): DisplayEvent[] {
+  return items.map((event, index) => ({
+    id: event.id,
+    title: event.title,
+    description: event.description ?? '',
+    date: event.event_date ?? 'Date TBA',
+    media_url: event.media_url,
+    media_type: event.media_type,
+    fallbackImage: eventFallbackImages[index % eventFallbackImages.length],
+  }))
+}
+
+function staticDisplayEvents(): DisplayEvent[] {
+  return staticEvents.map((event, index) => ({
+    id: event.id,
+    title: event.title,
+    description: event.description,
+    date: event.date,
+    fallbackImage: eventFallbackImages[index % eventFallbackImages.length],
+  }))
 }
 
 export function Events() {
+  const [displayEvents, setDisplayEvents] = useState<DisplayEvent[]>(staticDisplayEvents())
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const live = await fetchPublishedSiteEvents()
+        if (live.length > 0) {
+          setDisplayEvents(toDisplayEvents(live))
+        }
+      } catch {
+        // Keep curated fallback content when Supabase is unavailable.
+      }
+    })()
+  }, [])
+
+  const upcomingCount = useMemo(() => String(displayEvents.length), [displayEvents.length])
+
   return (
     <div className="relative overflow-hidden">
       <div
@@ -64,7 +113,7 @@ export function Events() {
         <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,transparent,rgba(184,167,138,0.05)_45%,transparent)]" />
         <div className="relative mx-auto grid max-w-4xl grid-cols-3 gap-6 px-6 text-center lg:px-8">
           {[
-            { value: '3', label: 'Upcoming events' },
+            { value: upcomingCount, label: 'Upcoming events' },
             { value: 'Monthly', label: 'Showcase rhythm' },
             { value: 'Open', label: 'All levels welcome' },
           ].map((s, i) => (
@@ -104,8 +153,8 @@ export function Events() {
               aria-hidden
             />
 
-            {events.map((event, i) => {
-              const { month, day } = parseDateParts(event.date)
+            {displayEvents.map((event, i) => {
+              const { month, day, full } = parseEventDateParts(event.date)
               return (
                 <motion.div
                   key={event.id}
@@ -124,24 +173,33 @@ export function Events() {
 
                   <div className="relative flex-1 overflow-hidden rounded-2xl border border-border bg-glass shadow-[var(--shadow-card)] backdrop-blur-md transition-[border-color,box-shadow,transform] duration-300 group-hover:-translate-y-1 group-hover:border-gold/22 group-hover:shadow-[var(--shadow-card-hover)]">
                     <div className="flex flex-col md:flex-row">
-                      <div className="relative aspect-[16/7] shrink-0 overflow-hidden md:aspect-auto md:w-[38%]">
-                        <img
-                          src={eventImages[i % eventImages.length]}
-                          alt=""
-                          className="h-full w-full object-cover transition duration-700 group-hover:scale-[1.04]"
-                        />
+                      <div className="relative aspect-[16/9] shrink-0 overflow-hidden md:aspect-auto md:w-[38%] md:min-h-[14rem]">
+                        {event.media_url ? (
+                          <SiteMediaDisplay
+                            reference={event.media_url}
+                            mediaType={event.media_type}
+                            alt={event.title}
+                            className="h-full w-full object-cover transition duration-700 group-hover:scale-[1.04]"
+                          />
+                        ) : (
+                          <img
+                            src={event.fallbackImage}
+                            alt=""
+                            className="h-full w-full object-cover transition duration-700 group-hover:scale-[1.04]"
+                          />
+                        )}
                         <div className="absolute inset-0 bg-gradient-to-r from-transparent to-page/35 md:bg-gradient-to-t md:from-page/50" />
                         <div className="absolute inset-0 bg-gradient-to-br from-gold/10 to-transparent opacity-0 transition duration-300 group-hover:opacity-100" />
                         <div className="absolute left-4 top-4 flex items-center gap-2 rounded-full border border-gold/30 bg-page/80 px-3 py-1.5 backdrop-blur-md md:hidden">
                           <IconCalendar className="h-3.5 w-3.5 text-gold" />
-                          <span className="text-xs font-semibold text-gold">{event.date}</span>
+                          <span className="text-xs font-semibold text-gold">{full}</span>
                         </div>
                       </div>
 
                       <div className="flex flex-1 flex-col justify-between p-7 md:p-8">
                         <div>
                           <p className="hidden text-[10px] font-bold uppercase tracking-[0.25em] text-gold/85 md:block">
-                            {event.date}
+                            {full}
                           </p>
                           <h2 className="mt-1 font-display text-2xl text-fg md:mt-2.5 md:text-3xl">
                             {event.title}

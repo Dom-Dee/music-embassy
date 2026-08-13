@@ -587,3 +587,81 @@ $$;
 
 revoke all on function public.submit_assignment(uuid, text, text[]) from public;
 grant execute on function public.submit_assignment(uuid, text, text[]) to authenticated;
+
+
+-- ── 13) SITE MEDIA — admin-managed events & gallery (photos / videos) ──
+
+create table if not exists public.site_events (
+  id          uuid primary key default gen_random_uuid(),
+  title       text not null,
+  description text,
+  event_date  text,
+  media_url   text,
+  media_type  text check (media_type is null or media_type in ('image', 'video')),
+  published   boolean not null default true,
+  sort_order  integer not null default 0,
+  created_at  timestamptz not null default now()
+);
+
+create table if not exists public.gallery_items (
+  id          uuid primary key default gen_random_uuid(),
+  title       text not null,
+  tag         text,
+  media_url   text not null,
+  media_type  text not null default 'image' check (media_type in ('image', 'video')),
+  published   boolean not null default true,
+  sort_order  integer not null default 0,
+  created_at  timestamptz not null default now()
+);
+
+alter table public.site_events enable row level security;
+alter table public.gallery_items enable row level security;
+
+drop policy if exists "Public read published site events" on public.site_events;
+create policy "Public read published site events"
+  on public.site_events for select to public
+  using (published = true);
+
+drop policy if exists "Admins manage site events" on public.site_events;
+create policy "Admins manage site events"
+  on public.site_events for all to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
+
+drop policy if exists "Public read published gallery items" on public.gallery_items;
+create policy "Public read published gallery items"
+  on public.gallery_items for select to public
+  using (published = true);
+
+drop policy if exists "Admins manage gallery items" on public.gallery_items;
+create policy "Admins manage gallery items"
+  on public.gallery_items for all to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
+
+-- Allow larger uploads for site media; add video/webm
+update storage.buckets
+set file_size_limit = 104857600,
+    allowed_mime_types = array[
+      'application/pdf',
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+      'image/gif',
+      'audio/mpeg',
+      'audio/wav',
+      'audio/mp4',
+      'video/mp4',
+      'video/webm',
+      'video/quicktime',
+      'text/plain'
+    ]::text[]
+where id = 'portal-files';
+
+drop policy if exists "Public read site media files" on storage.objects;
+create policy "Public read site media files"
+  on storage.objects for select to public
+  using (
+    bucket_id = 'portal-files'
+    and (storage.foldername(name))[1] in ('events', 'gallery')
+  );

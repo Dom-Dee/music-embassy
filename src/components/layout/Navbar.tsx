@@ -2,6 +2,7 @@ import { AnimatePresence, motion, useMotionValueEvent, useScroll } from 'framer-
 import { Link, useLocation } from 'react-router-dom'
 import { useState } from 'react'
 import { useAuth } from '../../auth/useAuth'
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock'
 import { scrollToTopInstant } from '../../lib/navigation'
 import { AuthActionTray } from '../auth/AuthActionTray'
 import { BackButton } from './BackButton'
@@ -37,6 +38,8 @@ export function Navbar() {
     setScrolled(y > 24)
   })
 
+  useBodyScrollLock(open)
+
   return (
     <>
       <motion.header
@@ -68,7 +71,7 @@ export function Navbar() {
           ) : null}
           <button
             type="button"
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-glass text-fg transition-[background-color,border-color] duration-200 hover:border-gold/30 md:hidden"
+            className="tap-target flex h-11 w-11 items-center justify-center rounded-full border border-border bg-glass text-fg transition-[background-color,border-color] duration-200 hover:border-gold/30 md:hidden"
             aria-expanded={open}
             aria-label={open ? 'Close menu' : 'Open menu'}
             onClick={() => setOpen((o) => !o)}
@@ -90,10 +93,10 @@ export function Navbar() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
-            className="fixed inset-0 z-[90] overflow-y-auto bg-page/95 backdrop-blur-xl md:hidden"
+            className="mobile-nav-overlay fixed inset-0 z-[95] overflow-y-auto overscroll-contain bg-page/97 backdrop-blur-xl md:hidden"
             style={{
               paddingTop: 'calc(4.5rem + env(safe-area-inset-top, 0px))',
-              paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+              paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 0px))',
             }}
           >
             <nav className="flex flex-col gap-1 px-6 py-8">

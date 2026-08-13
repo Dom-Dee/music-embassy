@@ -481,6 +481,8 @@
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--accent-gold) 32%, transparent)
     transparent;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
 }
 .music-scroll::-webkit-scrollbar {
   height: 6px;
@@ -817,6 +819,48 @@
   select,
   textarea {
     font-size: 1rem;
+  }
+}
+
+.gallery-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.5rem;
+}
+
+@media (min-width: 640px) {
+  .gallery-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 2rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .gallery-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.gallery-grid__item {
+  min-width: 0;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .site-header {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .mobile-nav-overlay {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .profile-avatar-btn,
+  .nav-link-hover-glass,
+  .nav-link-active-pill {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 }
 

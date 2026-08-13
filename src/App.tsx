@@ -45,6 +45,9 @@ const AdminQuizzes = lazy(() =>
 const AdminFinance = lazy(() =>
   import('./pages/admin/AdminFinance').then((m) => ({ default: m.AdminFinance })),
 )
+const AdminMedia = lazy(() =>
+  import('./pages/admin/AdminMedia').then((m) => ({ default: m.AdminMedia })),
+)
 
 export default function App() {
   return (
@@ -86,6 +89,7 @@ export default function App() {
                     <Route path="assignments" element={<AdminAssignments />} />
                     <Route path="quizzes" element={<AdminQuizzes />} />
                     <Route path="finance" element={<AdminFinance />} />
+                    <Route path="media" element={<AdminMedia />} />
                   </Route>
                 </Route>
               </Route>

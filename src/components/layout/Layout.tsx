@@ -20,7 +20,7 @@ export function Layout() {
   return (
     <>
       <Navbar />
-      <div className="app-canvas relative min-h-svh">
+      <div className="app-canvas relative min-h-svh min-h-dvh">
         {showAdminReturn ? <AdminReturnTab /> : null}
         {showDashboardReturn ? <DashboardReturnTab /> : null}
         <main className="site-main-offset relative z-10">
