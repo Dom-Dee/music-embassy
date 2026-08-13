@@ -1,9 +1,8 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { IconTrebleClef } from '../icons'
 
 export const siteBrandClassName =
-  'site-brand relative z-10 inline-flex min-w-0 shrink-0 items-center gap-2 font-display text-xl tracking-tight text-fg md:text-2xl'
+  'site-brand relative z-10 min-w-0 shrink-0 truncate font-display text-xl tracking-tight text-fg md:text-2xl'
 
 type SiteBrandLinkProps = {
   className?: string
@@ -13,8 +12,7 @@ type SiteBrandLinkProps = {
 export function SiteBrandLink({ className = '', onClick }: SiteBrandLinkProps) {
   return (
     <Link to="/" onClick={onClick} className={`${siteBrandClassName} ${className}`.trim()}>
-      <IconTrebleClef />
-      <span className="truncate">The Music Embassy</span>
+      The Music Embassy
     </Link>
   )
 }

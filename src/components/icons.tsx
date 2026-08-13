@@ -254,23 +254,3 @@ export function IconUser({ className }: IconProps) {
     </svg>
   )
 }
-
-export function IconTrebleClef({ className }: IconProps) {
-  return (
-    <span
-      aria-hidden
-      className={`inline-block h-[1em] w-[0.586em] shrink-0 bg-current ${className ?? ''}`.trim()}
-      style={{
-        WebkitMaskImage: 'url(/treble-clef.png)',
-        maskImage: 'url(/treble-clef.png)',
-        WebkitMaskSize: 'contain',
-        maskSize: 'contain',
-        WebkitMaskRepeat: 'no-repeat',
-        maskRepeat: 'no-repeat',
-        WebkitMaskPosition: 'center',
-        maskPosition: 'center',
-        maskMode: 'alpha',
-      }}
-    />
-  )
-}
