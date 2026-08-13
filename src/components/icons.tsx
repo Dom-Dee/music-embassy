@@ -254,3 +254,16 @@ export function IconUser({ className }: IconProps) {
     </svg>
   )
 }
+
+export function IconTrebleClef({ className }: IconProps) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 32 64"
+      fill="currentColor"
+      aria-hidden
+    >
+      <path d="M23.5 4.5c-1.2-2.5-4-4-7-4-5.5 0-10 4.5-10 10 0 3.5 1.8 6.5 4.5 8.2V22C5.5 24.2 1 29.5 1 36c0 8.3 6.7 15 15 15 1.8 0 3.5-.3 5-.9v10.4c0 2.8 2.2 5 5 5s5-2.2 5-5V35.5C31 22.5 24 11.5 12.5 7.5V10c0-3 2.5-5.5 5.5-5.5 1.5 0 2.8.6 3.8 1.5-1.5-2.5-4-4.5-7.3-4.5zm-3 38.5c-3.6 0-6.5-2.9-6.5-6.5S16.9 30 20.5 30 27 32.9 27 36.5 24.1 43 20.5 43z" />
+    </svg>
+  )
+}

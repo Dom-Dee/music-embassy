@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import { IconTrebleClef } from '../icons'
 
 export const siteBrandClassName =
   'site-brand relative z-10 inline-flex min-w-0 shrink-0 items-center gap-2 font-display text-xl tracking-tight text-fg md:text-2xl'
@@ -9,29 +10,10 @@ type SiteBrandLinkProps = {
   onClick?: () => void
 }
 
-function TrebleClefMark() {
-  return (
-    <span
-      aria-hidden
-      className="inline-block h-[1em] w-[0.58em] shrink-0 bg-current"
-      style={{
-        WebkitMaskImage: 'url(/treble-clef.png)',
-        maskImage: 'url(/treble-clef.png)',
-        WebkitMaskSize: 'contain',
-        maskSize: 'contain',
-        WebkitMaskRepeat: 'no-repeat',
-        maskRepeat: 'no-repeat',
-        WebkitMaskPosition: 'center',
-        maskPosition: 'center',
-      }}
-    />
-  )
-}
-
 export function SiteBrandLink({ className = '', onClick }: SiteBrandLinkProps) {
   return (
     <Link to="/" onClick={onClick} className={`${siteBrandClassName} ${className}`.trim()}>
-      <TrebleClefMark />
+      <IconTrebleClef className="h-[1em] w-auto shrink-0" />
       <span className="truncate">The Music Embassy</span>
     </Link>
   )
