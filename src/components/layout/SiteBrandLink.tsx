@@ -13,7 +13,7 @@ type SiteBrandLinkProps = {
 export function SiteBrandLink({ className = '', onClick }: SiteBrandLinkProps) {
   return (
     <Link to="/" onClick={onClick} className={`${siteBrandClassName} ${className}`.trim()}>
-      <IconTrebleClef className="h-[1em] w-auto shrink-0" />
+      <IconTrebleClef />
       <span className="truncate">The Music Embassy</span>
     </Link>
   )
