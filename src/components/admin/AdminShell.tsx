@@ -65,7 +65,7 @@ export function AdminShell() {
           </div>
 
           <nav
-            className="flex gap-1 overflow-x-auto border-t border-border bg-[var(--nav-scrolled-bg)] px-3 py-2 md:px-4"
+            className="portal-shell-nav__tabs flex gap-1 overflow-x-auto border-t border-border px-3 py-2 md:px-4"
             aria-label="Admin sections"
           >
             {tabs.map((tab) => {

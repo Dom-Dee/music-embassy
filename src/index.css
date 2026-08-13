@@ -754,8 +754,51 @@
 }
 
 /* Cross-device layout: notches, home indicators, touch targets */
+.portal-header {
+  background: var(--page-bg);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow:
+    0 1px 0 var(--border-subtle),
+    0 6px 18px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme='dark'] .portal-header {
+  box-shadow:
+    0 1px 0 var(--border-subtle),
+    0 8px 24px rgba(0, 0, 0, 0.32);
+}
+
 .portal-shell-nav {
   top: calc(4.5rem + env(safe-area-inset-top, 0px));
+  z-index: 40;
+}
+
+.portal-shell-nav .glass-wood-surface {
+  background: var(--page-bg);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow:
+    0 1px 0 var(--border-subtle),
+    0 10px 28px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme='dark'] .portal-shell-nav .glass-wood-surface,
+[data-theme='light'] .portal-shell-nav .glass-wood-surface,
+.portal-shell-nav .glass-wood-surface:hover {
+  background: var(--page-bg);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+[data-theme='dark'] .portal-shell-nav .glass-wood-surface {
+  box-shadow:
+    0 1px 0 var(--border-subtle),
+    0 12px 32px rgba(0, 0, 0, 0.35);
+}
+
+.portal-shell-nav__tabs {
+  background: var(--page-bg);
 }
 
 .site-header {
@@ -846,7 +889,7 @@
 }
 
 @media (hover: none) and (pointer: coarse) {
-  .site-header {
+  .site-header:not(.portal-header) {
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
   }

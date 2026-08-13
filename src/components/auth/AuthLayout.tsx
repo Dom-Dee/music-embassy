@@ -8,7 +8,7 @@ import { PortalAmbient } from '../ui/PortalAmbient'
 export function AuthLayout() {
   return (
     <>
-      <header className="site-header fixed inset-x-0 top-0 z-[100] overflow-visible border-b border-border bg-[var(--nav-scrolled-bg)] backdrop-blur-xl supports-[backdrop-filter]:bg-[color-mix(in_srgb,var(--nav-scrolled-bg)_92%,transparent)]">
+      <header className="site-header portal-header fixed inset-x-0 top-0 z-[100] overflow-visible border-b border-border">
         <SiteHeaderInner>
           <SiteBrandLink />
         </SiteHeaderInner>
