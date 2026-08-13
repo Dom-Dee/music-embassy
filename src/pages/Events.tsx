@@ -51,9 +51,7 @@ export function Events() {
     void (async () => {
       try {
         const live = await fetchPublishedSiteEvents()
-        if (live.length > 0) {
-          setDisplayEvents(toDisplayEvents(live))
-        }
+        setDisplayEvents(live.length > 0 ? toDisplayEvents(live) : [])
       } catch {
         // Keep curated fallback content when Supabase is unavailable.
       }

@@ -10,6 +10,7 @@ import {
 } from '../../components/admin/AdminUi'
 import { useAdminToast } from '../../components/admin/AdminToastProvider'
 import { AdminRecordActions } from '../../components/admin/AdminRecordActions'
+import { AdminMediaOrderControls } from '../../components/admin/AdminMediaOrderControls'
 import { FileUploadField } from '../../components/admin/FileUploadField'
 import { SiteMediaDisplay } from '../../components/site/SiteMediaDisplay'
 import { Button } from '../../components/ui/Button'
@@ -21,12 +22,20 @@ import {
   deleteSiteEvent,
   fetchAdminGalleryItems,
   fetchAdminSiteEvents,
+  reorderGalleryItem,
+  reorderSiteEvent,
   updateGalleryItem,
   updateSiteEvent,
 } from '../../lib/siteMediaData'
 import { uploadPortalFiles } from '../../lib/uploadPortalFile'
 import type { GalleryItem, SiteEvent } from '../../types/siteMedia'
-import { GALLERY_TAGS, mediaTypeFromFile } from '../../types/siteMedia'
+import {
+  GALLERY_TAGS,
+  mediaTypeFromFile,
+  nextSiteMediaSortOrder,
+  siteMediaPositionLabel,
+  sortSiteMediaItems,
+} from '../../types/siteMedia'
 
 type MediaTab = 'events' | 'gallery'
 
@@ -37,6 +46,7 @@ export function AdminMedia() {
   const [gallery, setGallery] = useState<GalleryItem[]>([])
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [reordering, setReordering] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const [editingEventId, setEditingEventId] = useState<string | null>(null)
@@ -44,7 +54,6 @@ export function AdminMedia() {
   const [eventDescription, setEventDescription] = useState('')
   const [eventDate, setEventDate] = useState('')
   const [eventPublished, setEventPublished] = useState(true)
-  const [eventSortOrder, setEventSortOrder] = useState(0)
   const [eventMediaUrl, setEventMediaUrl] = useState<string | null>(null)
   const [eventMediaType, setEventMediaType] = useState<'image' | 'video' | null>(null)
   const [eventFiles, setEventFiles] = useState<File[]>([])
@@ -53,7 +62,6 @@ export function AdminMedia() {
   const [galleryTitle, setGalleryTitle] = useState('')
   const [galleryTag, setGalleryTag] = useState<string>(GALLERY_TAGS[0])
   const [galleryPublished, setGalleryPublished] = useState(true)
-  const [gallerySortOrder, setGallerySortOrder] = useState(0)
   const [galleryMediaUrl, setGalleryMediaUrl] = useState('')
   const [galleryMediaType, setGalleryMediaType] = useState<'image' | 'video'>('image')
   const [galleryFiles, setGalleryFiles] = useState<File[]>([])
@@ -64,7 +72,6 @@ export function AdminMedia() {
     setEventDescription('')
     setEventDate('')
     setEventPublished(true)
-    setEventSortOrder(0)
     setEventMediaUrl(null)
     setEventMediaType(null)
     setEventFiles([])
@@ -75,7 +82,6 @@ export function AdminMedia() {
     setGalleryTitle('')
     setGalleryTag(GALLERY_TAGS[0])
     setGalleryPublished(true)
-    setGallerySortOrder(0)
     setGalleryMediaUrl('')
     setGalleryMediaType('image')
     setGalleryFiles([])
@@ -106,7 +112,6 @@ export function AdminMedia() {
     setEventDescription(item.description ?? '')
     setEventDate(item.event_date ?? '')
     setEventPublished(item.published)
-    setEventSortOrder(item.sort_order)
     setEventMediaUrl(item.media_url)
     setEventMediaType(item.media_type)
     setEventFiles([])
@@ -118,7 +123,6 @@ export function AdminMedia() {
     setGalleryTitle(item.title)
     setGalleryTag(item.tag ?? GALLERY_TAGS[0])
     setGalleryPublished(item.published)
-    setGallerySortOrder(item.sort_order)
     setGalleryMediaUrl(item.media_url)
     setGalleryMediaType(item.media_type)
     setGalleryFiles([])
@@ -141,6 +145,10 @@ export function AdminMedia() {
         mediaType = mediaTypeFromFile(eventFiles[0])
       }
 
+      const sort_order = editingEventId
+        ? (events.find((item) => item.id === editingEventId)?.sort_order ?? 0)
+        : nextSiteMediaSortOrder(events)
+
       const payload = {
         title: eventTitle,
         description: eventDescription,
@@ -148,7 +156,7 @@ export function AdminMedia() {
         media_url: mediaUrl,
         media_type: mediaType,
         published: eventPublished,
-        sort_order: eventSortOrder,
+        sort_order,
       }
 
       if (editingEventId) {
@@ -187,13 +195,17 @@ export function AdminMedia() {
         throw new Error('Upload a photo or video for the gallery.')
       }
 
+      const sort_order = editingGalleryId
+        ? (gallery.find((item) => item.id === editingGalleryId)?.sort_order ?? 0)
+        : nextSiteMediaSortOrder(gallery)
+
       const payload = {
         title: galleryTitle,
         tag: galleryTag,
         media_url: mediaUrl,
         media_type: mediaType,
         published: galleryPublished,
-        sort_order: gallerySortOrder,
+        sort_order,
       }
 
       if (editingGalleryId) {
@@ -242,6 +254,36 @@ export function AdminMedia() {
       setSubmitting(false)
     }
   }
+
+  async function handleMoveEvent(id: string, direction: 'up' | 'down') {
+    setReordering(true)
+    setError(null)
+    try {
+      await reorderSiteEvent(events, id, direction)
+      await load()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not reorder events')
+    } finally {
+      setReordering(false)
+    }
+  }
+
+  async function handleMoveGallery(id: string, direction: 'up' | 'down') {
+    setReordering(true)
+    setError(null)
+    try {
+      await reorderGalleryItem(gallery, id, direction)
+      await load()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not reorder gallery items')
+    } finally {
+      setReordering(false)
+    }
+  }
+
+  const sortedEvents = sortSiteMediaItems(events)
+  const sortedGallery = sortSiteMediaItems(gallery)
+  const listBusy = submitting || reordering
 
   return (
     <AdminPage>
@@ -322,25 +364,19 @@ export function AdminMedia() {
                   />
                 </div>
               ) : null}
-              <div className="grid gap-4 sm:grid-cols-2">
-                <FormField label="Sort order" id="event-sort">
-                  <input
-                    id="event-sort"
-                    type="number"
-                    className={formInputClass}
-                    value={eventSortOrder}
-                    onChange={(e) => setEventSortOrder(Number(e.target.value) || 0)}
-                  />
-                </FormField>
-                <label className="flex items-center gap-2 pt-7 text-sm text-fg">
-                  <input
-                    type="checkbox"
-                    checked={eventPublished}
-                    onChange={(e) => setEventPublished(e.target.checked)}
-                  />
-                  Published on site
-                </label>
-              </div>
+              <label className="flex items-center gap-2 text-sm text-fg">
+                <input
+                  type="checkbox"
+                  checked={eventPublished}
+                  onChange={(e) => setEventPublished(e.target.checked)}
+                />
+                Published on site
+              </label>
+              <p className="text-xs text-muted">
+                {editingEventId
+                  ? 'Use Move up / Move down in the list to change where this event appears.'
+                  : 'New events are added to the end. Reorder them in the list after saving.'}
+              </p>
               <div className="flex flex-wrap gap-3 pt-2">
                 <Button type="submit" disabled={submitting}>
                   {editingEventId ? 'Update event' : 'Add event'}
@@ -359,18 +395,28 @@ export function AdminMedia() {
             title="Events on site"
             empty={!loading && events.length === 0 ? 'No events yet. Add your first event on the left.' : undefined}
           >
-            {events.map((item) => (
+            {sortedEvents.map((item, index) => (
               <AdminRecordCard
                 key={item.id}
                 title={item.title}
                 meta={`${item.event_date ?? 'No date'} · ${item.published ? 'Live' : 'Draft'}`}
                 detail={item.media_type ? `${item.media_type} attached` : 'Text only'}
                 action={
-                  <AdminRecordActions
-                    onEdit={() => startEditEvent(item)}
-                    onDelete={() => void handleDeleteEvent(item.id)}
-                    deleting={submitting}
-                  />
+                  <div className="flex shrink-0 flex-col items-end gap-2">
+                    <AdminRecordActions
+                      onEdit={() => startEditEvent(item)}
+                      onDelete={() => void handleDeleteEvent(item.id)}
+                      deleting={listBusy}
+                    />
+                    <AdminMediaOrderControls
+                      positionLabel={siteMediaPositionLabel(index, sortedEvents.length)}
+                      canMoveUp={index > 0}
+                      canMoveDown={index < sortedEvents.length - 1}
+                      onMoveUp={() => void handleMoveEvent(item.id, 'up')}
+                      onMoveDown={() => void handleMoveEvent(item.id, 'down')}
+                      disabled={listBusy}
+                    />
+                  </div>
                 }
                 body={
                   <div className="flex gap-4">
@@ -435,25 +481,19 @@ export function AdminMedia() {
                   />
                 </div>
               ) : null}
-              <div className="grid gap-4 sm:grid-cols-2">
-                <FormField label="Sort order" id="gallery-sort">
-                  <input
-                    id="gallery-sort"
-                    type="number"
-                    className={formInputClass}
-                    value={gallerySortOrder}
-                    onChange={(e) => setGallerySortOrder(Number(e.target.value) || 0)}
-                  />
-                </FormField>
-                <label className="flex items-center gap-2 pt-7 text-sm text-fg">
-                  <input
-                    type="checkbox"
-                    checked={galleryPublished}
-                    onChange={(e) => setGalleryPublished(e.target.checked)}
-                  />
-                  Published on site
-                </label>
-              </div>
+              <label className="flex items-center gap-2 text-sm text-fg">
+                <input
+                  type="checkbox"
+                  checked={galleryPublished}
+                  onChange={(e) => setGalleryPublished(e.target.checked)}
+                />
+                Published on site
+              </label>
+              <p className="text-xs text-muted">
+                {editingGalleryId
+                  ? 'Use Move up / Move down in the list to change where this item appears.'
+                  : 'New items are added to the end. Reorder them in the list after saving.'}
+              </p>
               <div className="flex flex-wrap gap-3 pt-2">
                 <Button type="submit" disabled={submitting}>
                   {editingGalleryId ? 'Update item' : 'Add to gallery'}
@@ -472,17 +512,27 @@ export function AdminMedia() {
             title="Gallery items"
             empty={!loading && gallery.length === 0 ? 'No gallery items yet. Upload your first photo or video.' : undefined}
           >
-            {gallery.map((item) => (
+            {sortedGallery.map((item, index) => (
               <AdminRecordCard
                 key={item.id}
                 title={item.title}
                 meta={`${item.tag ?? 'Uncategorized'} · ${item.media_type} · ${item.published ? 'Live' : 'Draft'}`}
                 action={
-                  <AdminRecordActions
-                    onEdit={() => startEditGallery(item)}
-                    onDelete={() => void handleDeleteGallery(item.id)}
-                    deleting={submitting}
-                  />
+                  <div className="flex shrink-0 flex-col items-end gap-2">
+                    <AdminRecordActions
+                      onEdit={() => startEditGallery(item)}
+                      onDelete={() => void handleDeleteGallery(item.id)}
+                      deleting={listBusy}
+                    />
+                    <AdminMediaOrderControls
+                      positionLabel={siteMediaPositionLabel(index, sortedGallery.length)}
+                      canMoveUp={index > 0}
+                      canMoveDown={index < sortedGallery.length - 1}
+                      onMoveUp={() => void handleMoveGallery(item.id, 'up')}
+                      onMoveDown={() => void handleMoveGallery(item.id, 'down')}
+                      disabled={listBusy}
+                    />
+                  </div>
                 }
                 body={
                   <div className="h-24 w-full max-w-[9rem] overflow-hidden rounded-lg border border-border">

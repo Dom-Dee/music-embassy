@@ -63,15 +63,17 @@ export function MusicShowcase() {
   const [active, setActive] = useState<(typeof filters)[number]>('All')
   const [playingId, setPlayingId] = useState<string | null>(null)
   const [galleryItems, setGalleryItems] = useState<DisplayGalleryItem[]>(staticDisplayGallery())
+  const [usingLiveGallery, setUsingLiveGallery] = useState(false)
   const [lightboxItem, setLightboxItem] = useState<DisplayGalleryItem | null>(null)
 
   useEffect(() => {
     void (async () => {
       try {
         const live = await fetchPublishedGalleryItems()
-        if (live.length > 0) {
-          setGalleryItems(toDisplayGallery(live))
-        }
+        setUsingLiveGallery(true)
+        setGalleryItems(
+          live.length > 0 ? toDisplayGallery(live) : [],
+        )
       } catch {
         // Keep curated fallback gallery when Supabase is unavailable.
       }
@@ -330,6 +332,13 @@ export function MusicShowcase() {
 
       <section className="pb-24 md:pb-32">
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
+          {usingLiveGallery && filtered.length === 0 ? (
+            <p className="rounded-2xl border border-border bg-glass/60 px-6 py-10 text-center text-muted">
+              {active === 'All'
+                ? 'No gallery items published yet. Add photos or videos in Admin → Media.'
+                : `No published items in “${active}” yet. Try “All” or upload under this category in Admin → Media.`}
+            </p>
+          ) : (
           <AnimatePresence mode="popLayout">
             <motion.div
               key={active}
@@ -400,6 +409,7 @@ export function MusicShowcase() {
               ))}
             </motion.div>
           </AnimatePresence>
+          )}
         </div>
       </section>
 
