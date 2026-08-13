@@ -1,10 +1,11 @@
 import { motion } from 'framer-motion'
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../auth/useAuth'
 import { InstrumentSelector } from '../../components/auth/InstrumentSelector'
 import { AuthAlert } from '../../components/auth/AuthAlert'
 import { Button } from '../../components/ui/Button'
+import { useStudentDashboard } from '../../hooks/useStudentDashboard'
 import { formatFirstName } from '../../lib/formatName'
 import {
   createStudentEnrollments,
@@ -16,6 +17,7 @@ import type { Instrument } from '../../types/student'
 export function ChooseInstruments() {
   const { profile } = useAuth()
   const navigate = useNavigate()
+  const { dashboardLocked, loading: billingLoading } = useStudentDashboard(profile?.id)
 
   const [instruments, setInstruments] = useState<Instrument[]>([])
   const [enrolledInstrumentIds, setEnrolledInstrumentIds] = useState<Set<string>>(
@@ -77,6 +79,10 @@ export function ChooseInstruments() {
   }
 
   if (!profile) return null
+
+  if (!billingLoading && dashboardLocked) {
+    return <Navigate to="/dashboard" replace />
+  }
 
   const firstName = formatFirstName(profile.full_name)
   const addingAnother = enrolledInstrumentIds.size > 0

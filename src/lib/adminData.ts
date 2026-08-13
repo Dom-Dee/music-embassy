@@ -457,6 +457,42 @@ export async function createInvoice(input: {
   })
 
   if (error) throw new Error(error.message)
+
+  await notifyStudentInvoiceCreated({
+    student_id: input.student_id,
+    month: input.month,
+    amount: input.amount,
+    due_date: input.due_date,
+    currency: input.currency ?? 'GHS',
+  })
+}
+
+async function notifyStudentInvoiceCreated(input: {
+  student_id: string
+  month: string
+  amount: number
+  due_date: string
+  currency: string
+  student?: { full_name: string; email: string } | null
+}): Promise<void> {
+  let student = input.student
+  if (!student) {
+    const { data } = await supabase
+      .from('profiles')
+      .select('full_name, email')
+      .eq('id', input.student_id)
+      .maybeSingle()
+    student = data ?? null
+  }
+
+  await publishStudentNotifications(
+    [{ student_id: input.student_id, student }],
+    {
+      type: 'invoice',
+      title: 'New tuition invoice',
+      body: `Your ${input.month} tuition of ${input.currency} ${input.amount} is due by ${input.due_date}. You have 7 days after the due date to pay before dashboard access is paused.`,
+    },
+  )
 }
 
 export async function generateMonthlyInvoices(
@@ -506,6 +542,15 @@ export async function generateMonthlyInvoices(
       }
       throw new Error(error.message)
     }
+
+    await notifyStudentInvoiceCreated({
+      student_id: enrollment.student_id,
+      month,
+      amount,
+      due_date: dueDate,
+      currency: 'GHS',
+      student: enrollment.student ?? null,
+    })
 
     created++
   }

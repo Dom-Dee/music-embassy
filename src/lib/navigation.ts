@@ -3,6 +3,13 @@ export function scrollToTopInstant() {
   window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
 }
 
+/** Scroll to an in-page anchor by element id. */
+export function scrollToElementById(id: string, behavior: ScrollBehavior = 'smooth') {
+  deferToNextFrame(() => {
+    document.getElementById(id)?.scrollIntoView({ behavior, block: 'start' })
+  })
+}
+
 /** Wait for the next paint so taps feel responsive before heavy work. */
 export function deferToNextFrame(task: () => void) {
   requestAnimationFrame(() => {

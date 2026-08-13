@@ -9,7 +9,7 @@ import {
   formatCurrency,
   formatDate,
   formatDateTime,
-  getOwingInvoices,
+  getUnpaidInvoices,
   getTotalOwing,
   isAssignmentPending,
 } from '../../types/student'
@@ -60,7 +60,7 @@ export function InstrumentPathCard({
   const { enrollment, lessons, invoices, assignments, quizzes } = path
   const name = enrollment.instruments?.name ?? 'Instrument'
   const monthlyFee = enrollment.instruments?.monthly_fee ?? 0
-  const owing = getOwingInvoices(invoices)
+  const owing = getUnpaidInvoices(invoices)
   const pathBalance = getTotalOwing(invoices)
   const currency = invoices[0]?.currency ?? 'GHS'
   const cover = getInstrumentImageUrl(name)

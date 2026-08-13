@@ -4,10 +4,15 @@ import {
   canEditAssignmentSubmission,
   countPendingAssignments,
   formatCurrency,
+  formatGraceCountdown,
   formatSubmissionEditRemaining,
+  getGraceDaysRemaining,
   getOwingInvoices,
-  groupAssignmentsByWorkflow,
   getTotalOwing,
+  getUnpaidInvoices,
+  groupAssignmentsByWorkflow,
+  isDashboardAccessLocked,
+  isInvoiceAccessLocked,
   isInvoiceOwing,
   type Enrollment,
   type Invoice,
@@ -46,14 +51,30 @@ describe('student helpers', () => {
     expect(isInvoiceOwing(makeInvoice({ due_date: '2026-12-31' }))).toBe(false)
   })
 
-  it('totals owing invoices', () => {
+  it('totals unpaid invoices including future due dates', () => {
     const invoices = [
       makeInvoice({ id: '1', amount: 100, due_date: '2026-05-10' }),
       makeInvoice({ id: '2', amount: 50, status: 'paid' }),
       makeInvoice({ id: '3', amount: 25, due_date: '2026-12-31' }),
     ]
     expect(getOwingInvoices(invoices)).toHaveLength(1)
-    expect(getTotalOwing(invoices)).toBe(100)
+    expect(getUnpaidInvoices(invoices)).toHaveLength(2)
+    expect(getTotalOwing(invoices)).toBe(125)
+  })
+
+  it('locks dashboard after the 7-day grace period', () => {
+    const invoice = makeInvoice({ due_date: '2026-05-10' })
+    expect(getGraceDaysRemaining(invoice, Date.parse('2026-05-12'))).toBe(6)
+    expect(getGraceDaysRemaining(invoice, Date.parse('2026-05-19'))).toBe(0)
+    expect(isInvoiceAccessLocked(invoice, Date.parse('2026-05-20'))).toBe(true)
+    expect(isDashboardAccessLocked([invoice], Date.parse('2026-05-20'))).toBe(true)
+    expect(formatGraceCountdown(3)).toBe('3 days left to pay')
+  })
+
+  it('does not start grace countdown before due date', () => {
+    const invoice = makeInvoice({ due_date: '2026-05-25' })
+    expect(isInvoiceOwing(invoice, Date.parse('2026-05-19'))).toBe(false)
+    expect(getGraceDaysRemaining(invoice, Date.parse('2026-05-19'))).toBe(null)
   })
 
   it('builds instrument paths for active enrolments only', () => {

@@ -248,7 +248,7 @@ export function AdminMedia() {
       <AdminPageIntro
         eyebrow="Site content"
         title="Events & gallery"
-        description="Upload photos and videos for the public Events page and Music gallery. Run section 13 in supabase/RUN-IN-SUPABASE.sql if tables are missing."
+        description="Upload photos and videos for the public Events page and Music gallery. Published items appear on the site automatically."
       />
 
       {error ? <AdminAlert tone="error">{error}</AdminAlert> : null}

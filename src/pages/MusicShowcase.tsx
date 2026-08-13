@@ -1,12 +1,15 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import { useEffect, useMemo, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { featuredTracks, showcaseItems as staticShowcaseItems } from '../data/content'
 import { images } from '../data/images'
+import { GalleryMediaLightbox } from '../components/site/GalleryMediaLightbox'
 import { SiteMediaDisplay } from '../components/site/SiteMediaDisplay'
 import { SectionHeading } from '../components/ui/SectionHeading'
 import { Button } from '../components/ui/Button'
 import { IconPause, IconPlay } from '../components/icons'
 import { fetchPublishedGalleryItems } from '../lib/siteMediaData'
+import { scrollToElementById } from '../lib/navigation'
 import { heroContainer, heroItem } from '../lib/motion'
 import type { GalleryItem } from '../types/siteMedia'
 import { GALLERY_TAGS } from '../types/siteMedia'
@@ -56,9 +59,11 @@ const statLine = [
 ] as const
 
 export function MusicShowcase() {
+  const { hash } = useLocation()
   const [active, setActive] = useState<(typeof filters)[number]>('All')
   const [playingId, setPlayingId] = useState<string | null>(null)
   const [galleryItems, setGalleryItems] = useState<DisplayGalleryItem[]>(staticDisplayGallery())
+  const [lightboxItem, setLightboxItem] = useState<DisplayGalleryItem | null>(null)
 
   useEffect(() => {
     void (async () => {
@@ -73,6 +78,12 @@ export function MusicShowcase() {
     })()
   }, [])
 
+  useEffect(() => {
+    if (hash === '#gallery') {
+      scrollToElementById('gallery')
+    }
+  }, [hash])
+
   const filtered = useMemo(() => {
     if (active === 'All') return galleryItems
     return galleryItems.filter((x) => x.tag === active)
@@ -84,6 +95,7 @@ export function MusicShowcase() {
 
   return (
     <div className="relative overflow-hidden">
+      <GalleryMediaLightbox item={lightboxItem} onClose={() => setLightboxItem(null)} />
       <div
         className="pointer-events-none fixed inset-0 -z-20 bg-[radial-gradient(ellipse_85%_50%_at_20%_-8%,var(--glow-ambient-1),transparent_52%),radial-gradient(ellipse_65%_45%_at_85%_35%,var(--glow-ambient-2),transparent_48%)]"
         aria-hidden
@@ -151,7 +163,9 @@ export function MusicShowcase() {
               variants={heroItem}
               className="mt-11 flex flex-wrap justify-center gap-4"
             >
-              <Button to="/music#gallery">Browse the gallery</Button>
+              <Button type="button" onClick={() => scrollToElementById('gallery')}>
+                Browse the gallery
+              </Button>
               <Button to="/contact" variant="secondary">
                 Submit your work
               </Button>
@@ -339,6 +353,12 @@ export function MusicShowcase() {
                   className="gallery-grid__item"
                 >
                   <article className="group relative overflow-hidden rounded-2xl border border-border bg-glass shadow-[var(--shadow-card)] ring-1 ring-border/80 backdrop-blur-sm transition-[border-color,box-shadow,transform] duration-300 hover:-translate-y-1 hover:border-gold/22 hover:shadow-[var(--shadow-card-hover)]">
+                    <button
+                      type="button"
+                      onClick={() => setLightboxItem(item)}
+                      className="tap-target block w-full cursor-zoom-in text-left"
+                      aria-label={`View full size: ${item.title}`}
+                    >
                     <div
                       className={`relative overflow-hidden ${
                         i % 3 === 1 ? 'aspect-[4/5]' : 'aspect-[3/4]'
@@ -374,6 +394,7 @@ export function MusicShowcase() {
                         </p>
                       </div>
                     </div>
+                    </button>
                   </article>
                 </motion.div>
               ))}

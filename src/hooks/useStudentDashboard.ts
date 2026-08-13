@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { ensureStudentMonthlyInvoices } from '../lib/billing'
 import {
   fetchStudentAssignments,
   fetchStudentEnrollments,
@@ -14,15 +15,23 @@ import type {
   LessonSession,
   Quiz,
 } from '../types/student'
-import { buildInstrumentPaths, getOwingInvoices, getTotalOwing } from '../types/student'
+import {
+  buildInstrumentPaths,
+  getSoonestGraceDaysRemaining,
+  getTotalOwing,
+  getUnpaidInvoices,
+  isDashboardAccessLocked,
+} from '../types/student'
 
 type DashboardState = {
   invoices: Invoice[]
   enrollments: Enrollment[]
   lessons: LessonSession[]
   instrumentPaths: InstrumentPath[]
-  owingInvoices: Invoice[]
+  unpaidInvoices: Invoice[]
   totalOwing: number
+  dashboardLocked: boolean
+  graceDaysRemaining: number | null
   loading: boolean
   error: string | null
   refresh: () => Promise<void>
@@ -42,6 +51,7 @@ export function useStudentDashboard(studentId: string | undefined): DashboardSta
     setLoading(true)
     setError(null)
     try {
+      await ensureStudentMonthlyInvoices(studentId)
       const [inv, enr, les, asn, qz] = await Promise.all([
         fetchStudentInvoices(studentId),
         fetchStudentEnrollments(studentId),
@@ -69,16 +79,26 @@ export function useStudentDashboard(studentId: string | undefined): DashboardSta
     () => buildInstrumentPaths(enrollments, lessons, invoices, assignments, quizzes),
     [enrollments, lessons, invoices, assignments, quizzes],
   )
-  const owingInvoices = useMemo(() => getOwingInvoices(invoices), [invoices])
+  const unpaidInvoices = useMemo(() => getUnpaidInvoices(invoices), [invoices])
   const totalOwing = useMemo(() => getTotalOwing(invoices), [invoices])
+  const dashboardLocked = useMemo(
+    () => isDashboardAccessLocked(invoices),
+    [invoices],
+  )
+  const graceDaysRemaining = useMemo(
+    () => getSoonestGraceDaysRemaining(invoices),
+    [invoices],
+  )
 
   return {
     invoices,
     enrollments,
     lessons,
     instrumentPaths,
-    owingInvoices,
+    unpaidInvoices,
     totalOwing,
+    dashboardLocked,
+    graceDaysRemaining,
     loading,
     error,
     refresh,

@@ -10,6 +10,7 @@ import {
 import { DailyMusicQuote } from '../../components/dashboard/DailyMusicQuote'
 import { DashboardSummary } from '../../components/dashboard/DashboardSummary'
 import { InstrumentPathCard } from '../../components/dashboard/InstrumentPathCard'
+import { DashboardLockedScreen } from '../../components/dashboard/DashboardLockedScreen'
 import { OwingNotificationModal } from '../../components/dashboard/OwingNotificationModal'
 import { Button } from '../../components/ui/Button'
 import {
@@ -24,7 +25,7 @@ import { useStudentDashboard } from '../../hooks/useStudentDashboard'
 import { formatFirstName } from '../../lib/formatName'
 import { countUpcomingQuizzes } from '../../lib/portalTime'
 import { sendPaymentReminderEmail } from '../../lib/paymentReminder'
-import { countPendingAssignments, formatCurrency } from '../../types/student'
+import { countPendingAssignments, formatCurrency, formatGraceCountdown } from '../../types/student'
 
 const ease = [0.22, 1, 0.36, 1] as const
 
@@ -56,15 +57,17 @@ export function StudentDashboard() {
 
   const {
     instrumentPaths,
-    owingInvoices,
+    unpaidInvoices,
     totalOwing,
+    dashboardLocked,
+    graceDaysRemaining,
     loading,
     error,
     refresh,
   } = useStudentDashboard(profile?.id)
 
-  const owingIds = owingInvoices.map((i) => i.id).join(',')
-  const currency = owingInvoices[0]?.currency ?? 'GHS'
+  const unpaidIds = unpaidInvoices.map((i) => i.id).join(',')
+  const currency = unpaidInvoices[0]?.currency ?? 'GHS'
   const totalLessons = instrumentPaths.reduce((n, p) => n + p.lessons.length, 0)
   const pendingAssignments = instrumentPaths.reduce(
     (n, p) => n + countPendingAssignments(p.assignments),
@@ -77,9 +80,9 @@ export function StudentDashboard() {
   )
 
   useEffect(() => {
-    if (!profile || !owingIds) return
+    if (!profile || !unpaidIds || dashboardLocked) return
 
-    const invoices = owingInvoices
+    const invoices = unpaidInvoices
     void (async () => {
       const result = await sendPaymentReminderEmail({
         userId: profile.id,
@@ -90,9 +93,9 @@ export function StudentDashboard() {
       setEmailSent(result.sent)
       setEmailError(result.error ?? null)
     })()
-    // Intentionally keyed on owingIds so the reminder runs once per outstanding set.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- owingIds captures invoice changes
-  }, [profile?.id, profile?.email, profile?.full_name, owingIds])
+    // Intentionally keyed on unpaidIds so the reminder runs once per outstanding set.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- unpaidIds captures invoice changes
+  }, [profile?.id, profile?.email, profile?.full_name, unpaidIds, dashboardLocked])
 
   if (!profile) return null
 
@@ -105,10 +108,12 @@ export function StudentDashboard() {
   }
 
   const firstName = formatFirstName(profile.full_name)
-  const hasBalance = owingInvoices.length > 0
+  const hasBalance = unpaidInvoices.length > 0
+  const graceLabel = formatGraceCountdown(graceDaysRemaining)
   const showOwingModal =
-    owingModalManual ||
-    (hasBalance && !loading && dismissedOwingIds !== owingIds)
+    !dashboardLocked &&
+    (owingModalManual ||
+      (hasBalance && !loading && dismissedOwingIds !== unpaidIds))
 
   function openDashboardFocus(focus: DashboardFocus, instrumentId?: string) {
     setInstrumentFilter(instrumentId ?? null)
@@ -129,6 +134,17 @@ export function StudentDashboard() {
     setDashboardFocus(null)
     setInstrumentFilter(null)
     enrolmentsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  if (!loading && dashboardLocked) {
+    return (
+      <DashboardLockedScreen
+        fullName={profile.full_name}
+        totalOwing={totalOwing}
+        currency={currency}
+        unpaidInvoices={unpaidInvoices}
+      />
+    )
   }
 
   return (
@@ -214,7 +230,9 @@ export function StudentDashboard() {
               {
                 label: 'Balance',
                 value: loading ? '…' : formatCurrency(totalOwing, currency),
-                detail: hasBalance ? 'Outstanding fees' : 'Settled',
+                detail: hasBalance
+                  ? graceLabel ?? 'Outstanding fees'
+                  : 'Settled',
                 icon: <IconCreditCard className="h-4 w-4" />,
                 emphasis: hasBalance,
                 onClick: () => openDashboardFocus('billing'),
@@ -248,11 +266,13 @@ export function StudentDashboard() {
             <div>
               <p className="text-sm font-medium text-fg">
                 {formatCurrency(totalOwing, currency)} outstanding across{' '}
-                {owingInvoices.length} invoice
-                {owingInvoices.length === 1 ? '' : 's'}
+                {unpaidInvoices.length} invoice
+                {unpaidInvoices.length === 1 ? '' : 's'}
               </p>
               <p className="mt-1 text-sm text-muted">
-                Please settle your balance to keep lessons uninterrupted.
+                {graceLabel
+                  ? `${graceLabel} before dashboard access is paused.`
+                  : 'Please settle your balance to keep lessons uninterrupted.'}
               </p>
             </div>
             <Button type="button" onClick={() => setOwingModalManual(true)}>
@@ -313,14 +333,15 @@ export function StudentDashboard() {
       <OwingNotificationModal
         open={showOwingModal}
         onClose={() => {
-          setDismissedOwingIds(owingIds)
+          setDismissedOwingIds(unpaidIds)
           setOwingModalManual(false)
         }}
         fullName={profile.full_name}
         email={profile.email}
         totalOwing={totalOwing}
         currency={currency}
-        owingInvoices={owingInvoices}
+        unpaidInvoices={unpaidInvoices}
+        nowMs={nowMs}
         emailSent={emailSent}
         emailError={emailError}
       />

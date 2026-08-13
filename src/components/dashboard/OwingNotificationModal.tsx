@@ -2,8 +2,14 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { useEffect } from 'react'
 import { Button } from '../ui/Button'
 import type { Invoice } from '../../types/student'
+import {
+  formatCurrency,
+  formatDate,
+  formatGraceCountdown,
+  getGraceDaysRemaining,
+  isInvoiceOwing,
+} from '../../types/student'
 import { formatFirstName } from '../../lib/formatName'
-import { formatCurrency, formatDate } from '../../types/student'
 
 type OwingNotificationModalProps = {
   open: boolean
@@ -12,7 +18,8 @@ type OwingNotificationModalProps = {
   email: string
   totalOwing: number
   currency: string
-  owingInvoices: Invoice[]
+  unpaidInvoices: Invoice[]
+  nowMs: number
   emailSent: boolean
   emailError: string | null
 }
@@ -24,10 +31,19 @@ export function OwingNotificationModal({
   email,
   totalOwing,
   currency,
-  owingInvoices,
+  unpaidInvoices,
+  nowMs,
   emailSent,
   emailError,
 }: OwingNotificationModalProps) {
+  const graceDays = unpaidInvoices
+    .map((invoice) => getGraceDaysRemaining(invoice, nowMs))
+    .filter((value): value is number => value !== null)
+  const soonestGraceDays =
+    graceDays.length > 0 ? Math.min(...graceDays) : null
+  const graceLabel = formatGraceCountdown(soonestGraceDays)
+  const hasPastDue = unpaidInvoices.some((invoice) => isInvoiceOwing(invoice, nowMs))
+
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
@@ -61,43 +77,67 @@ export function OwingNotificationModal({
           >
             <div className="border-b border-border px-6 py-5">
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-gold">
-                Account notice
+                {hasPastDue ? 'Payment overdue' : 'New billing'}
               </p>
               <h2 id="owing-title" className="mt-2 font-display text-2xl text-fg">
-                Balance due
+                {hasPastDue ? 'Balance overdue' : 'Tuition invoice ready'}
               </h2>
               <p className="mt-1 text-sm text-muted">
-                {formatFirstName(fullName)}, please review the following invoices.
+                {formatFirstName(fullName)}, please review your current tuition invoice
+                {unpaidInvoices.length === 1 ? '' : 's'}.
               </p>
               <p className="mt-4 font-display text-3xl text-fg">
                 {formatCurrency(totalOwing, currency)}
               </p>
+              {graceLabel ? (
+                <p
+                  className={`mt-3 inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${
+                    soonestGraceDays !== null && soonestGraceDays <= 2
+                      ? 'bg-[color:var(--status-danger-bg)] text-[color:var(--status-danger-fg)] ring-1 ring-[color:var(--status-danger-border)]'
+                      : 'bg-gold/12 text-gold ring-1 ring-gold/25'
+                  }`}
+                >
+                  {graceLabel}
+                </p>
+              ) : (
+                <p className="mt-3 text-sm text-muted">
+                  Pay by the due date. After that you have 7 days before dashboard access
+                  is paused.
+                </p>
+              )}
             </div>
 
             <div className="space-y-4 px-6 py-5">
               <p className="text-sm leading-relaxed text-muted">
-                {owingInvoices.length} outstanding invoice
-                {owingInvoices.length === 1 ? '' : 's'}. Settlement keeps your lessons
+                {unpaidInvoices.length} open invoice
+                {unpaidInvoices.length === 1 ? '' : 's'}. Settlement keeps your lessons
                 and studio access uninterrupted.
               </p>
 
               <ul className="max-h-40 space-y-0 divide-y divide-border overflow-y-auto rounded-lg border border-border text-sm">
-                {owingInvoices.map((inv) => (
-                  <li
-                    key={inv.id}
-                    className="flex items-center justify-between gap-3 px-4 py-3"
-                  >
-                    <span>
-                      <span className="text-fg">{inv.month}</span>
-                      <span className="mt-0.5 block text-xs text-muted">
-                        Due {formatDate(inv.due_date)}
+                {unpaidInvoices.map((inv) => {
+                  const invoiceGrace = getGraceDaysRemaining(inv, nowMs)
+                  const pastDue = isInvoiceOwing(inv, nowMs)
+                  return (
+                    <li
+                      key={inv.id}
+                      className="flex items-center justify-between gap-3 px-4 py-3"
+                    >
+                      <span>
+                        <span className="text-fg">{inv.month}</span>
+                        <span className="mt-0.5 block text-xs text-muted">
+                          Due {formatDate(inv.due_date)}
+                          {pastDue && invoiceGrace !== null
+                            ? ` · ${formatGraceCountdown(invoiceGrace)}`
+                            : ''}
+                        </span>
                       </span>
-                    </span>
-                    <span className="shrink-0 tabular-nums font-medium text-fg">
-                      {formatCurrency(Number(inv.amount), inv.currency)}
-                    </span>
-                  </li>
-                ))}
+                      <span className="shrink-0 tabular-nums font-medium text-fg">
+                        {formatCurrency(Number(inv.amount), inv.currency)}
+                      </span>
+                    </li>
+                  )
+                })}
               </ul>
 
               {emailSent ? (

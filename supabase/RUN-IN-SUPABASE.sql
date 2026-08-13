@@ -665,3 +665,156 @@ create policy "Public read site media files"
     bucket_id = 'portal-files'
     and (storage.foldername(name))[1] in ('events', 'gallery')
   );
+
+
+-- ── 14) BILLING — auto invoice on enroll + monthly ensure ──
+
+create or replace function public.month_label_for(d date)
+returns text
+language sql
+immutable
+as $$
+  select trim(to_char(d, 'Month YYYY'));
+$$;
+
+create or replace function public.end_of_month_for(d date)
+returns date
+language sql
+immutable
+as $$
+  select (date_trunc('month', d) + interval '1 month' - interval '1 day')::date;
+$$;
+
+create or replace function public.notify_student_invoice(
+  p_student_id uuid,
+  p_title text,
+  p_body text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.portal_notifications (student_id, type, title, body)
+  values (p_student_id, 'invoice', p_title, p_body);
+exception
+  when undefined_table then
+    null;
+end;
+$$;
+
+create or replace function public.create_invoice_for_enrollment(
+  p_enrollment_id uuid,
+  p_billing_date date default current_date
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  enr record;
+  fee numeric;
+  month_txt text;
+  due date;
+begin
+  select e.id, e.student_id, e.status, e.instrument_id
+    into enr
+  from public.enrollments e
+  where e.id = p_enrollment_id;
+
+  if not found or enr.status <> 'active' then
+    return false;
+  end if;
+
+  select i.monthly_fee into fee
+  from public.instruments i
+  where i.id = enr.instrument_id and i.active = true;
+
+  if fee is null or fee <= 0 then
+    return false;
+  end if;
+
+  month_txt := public.month_label_for(p_billing_date);
+  due := public.end_of_month_for(p_billing_date);
+
+  if exists (
+    select 1
+    from public.invoices inv
+    where inv.enrollment_id = enr.id
+      and inv.month = month_txt
+      and inv.status <> 'cancelled'
+  ) then
+    return false;
+  end if;
+
+  insert into public.invoices (
+    student_id, enrollment_id, month, amount, due_date, currency, status
+  )
+  values (enr.student_id, enr.id, month_txt, fee, due, 'GHS', 'pending');
+
+  perform public.notify_student_invoice(
+    enr.student_id,
+    'New tuition invoice',
+    format(
+      'Your %s tuition of GHS %s is due by %s. You have 7 days after the due date to pay before dashboard access is paused.',
+      month_txt,
+      fee,
+      to_char(due, 'Mon DD, YYYY')
+    )
+  );
+
+  return true;
+end;
+$$;
+
+create or replace function public.trg_enrollment_invoice()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.status = 'active' then
+    perform public.create_invoice_for_enrollment(new.id, new.start_date);
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists enrollment_create_invoice on public.enrollments;
+create trigger enrollment_create_invoice
+  after insert on public.enrollments
+  for each row execute function public.trg_enrollment_invoice();
+
+create or replace function public.ensure_student_monthly_invoices(p_student_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  enr record;
+begin
+  if auth.uid() is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if auth.uid() <> p_student_id and not public.is_admin() then
+    raise exception 'Not authorized';
+  end if;
+
+  for enr in
+    select id
+    from public.enrollments
+    where student_id = p_student_id
+      and status = 'active'
+  loop
+    perform public.create_invoice_for_enrollment(enr.id, current_date);
+  end loop;
+end;
+$$;
+
+revoke all on function public.ensure_student_monthly_invoices(uuid) from public;
+grant execute on function public.ensure_student_monthly_invoices(uuid) to authenticated;

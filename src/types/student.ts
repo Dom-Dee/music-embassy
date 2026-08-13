@@ -88,20 +88,84 @@ export type InstrumentPath = {
   quizzes: Quiz[]
 }
 
-export function isInvoiceOwing(invoice: Invoice): boolean {
-  if (invoice.status === 'overdue') return true
-  if (invoice.status !== 'pending') return false
-  const due = new Date(invoice.due_date)
-  due.setHours(23, 59, 59, 999)
-  return due.getTime() <= Date.now()
+/** Days after due date before the student dashboard is locked. */
+export const PAYMENT_GRACE_DAYS = 7
+const MS_PER_DAY = 24 * 60 * 60 * 1000
+
+export function isInvoiceUnpaid(invoice: Invoice): boolean {
+  return invoice.status === 'pending' || invoice.status === 'overdue'
 }
 
-export function getOwingInvoices(invoices: Invoice[]): Invoice[] {
-  return invoices.filter(isInvoiceOwing)
+export function endOfDueDateMs(dueDate: string): number {
+  const due = new Date(dueDate)
+  due.setHours(23, 59, 59, 999)
+  return due.getTime()
+}
+
+export function getInvoiceLockDeadlineMs(invoice: Invoice): number {
+  return endOfDueDateMs(invoice.due_date) + PAYMENT_GRACE_DAYS * MS_PER_DAY
+}
+
+export function isInvoiceOwing(invoice: Invoice, nowMs: number = Date.now()): boolean {
+  if (!isInvoiceUnpaid(invoice)) return false
+  return endOfDueDateMs(invoice.due_date) <= nowMs
+}
+
+export function isInvoiceAccessLocked(invoice: Invoice, nowMs: number = Date.now()): boolean {
+  if (!isInvoiceUnpaid(invoice)) return false
+  return nowMs > getInvoiceLockDeadlineMs(invoice)
+}
+
+export function getUnpaidInvoices(invoices: Invoice[]): Invoice[] {
+  return invoices.filter(isInvoiceUnpaid)
+}
+
+export function getOwingInvoices(invoices: Invoice[], nowMs: number = Date.now()): Invoice[] {
+  return invoices.filter((invoice) => isInvoiceOwing(invoice, nowMs))
 }
 
 export function getTotalOwing(invoices: Invoice[]): number {
-  return getOwingInvoices(invoices).reduce((sum, inv) => sum + Number(inv.amount), 0)
+  return getUnpaidInvoices(invoices).reduce((sum, inv) => sum + Number(inv.amount), 0)
+}
+
+export function isDashboardAccessLocked(
+  invoices: Invoice[],
+  nowMs: number = Date.now(),
+): boolean {
+  return getUnpaidInvoices(invoices).some((invoice) => isInvoiceAccessLocked(invoice, nowMs))
+}
+
+/** Whole days left before lock; null if not past due yet; 0 if already locked. */
+export function getGraceDaysRemaining(
+  invoice: Invoice,
+  nowMs: number = Date.now(),
+): number | null {
+  if (!isInvoiceUnpaid(invoice)) return null
+  if (!isInvoiceOwing(invoice, nowMs)) return null
+
+  const lockDeadline = getInvoiceLockDeadlineMs(invoice)
+  if (nowMs >= lockDeadline) return 0
+
+  return Math.ceil((lockDeadline - nowMs) / MS_PER_DAY)
+}
+
+export function getSoonestGraceDaysRemaining(
+  invoices: Invoice[],
+  nowMs: number = Date.now(),
+): number | null {
+  const days = getUnpaidInvoices(invoices)
+    .map((invoice) => getGraceDaysRemaining(invoice, nowMs))
+    .filter((value): value is number => value !== null)
+
+  if (days.length === 0) return null
+  return Math.min(...days)
+}
+
+export function formatGraceCountdown(days: number | null): string | null {
+  if (days === null) return null
+  if (days <= 0) return 'Dashboard access paused'
+  if (days === 1) return '1 day left to pay'
+  return `${days} days left to pay`
 }
 
 /** Students may edit/resubmit for this long after the first submission. */
