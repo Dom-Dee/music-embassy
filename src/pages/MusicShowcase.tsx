@@ -335,8 +335,8 @@ export function MusicShowcase() {
           {usingLiveGallery && filtered.length === 0 ? (
             <p className="rounded-2xl border border-border bg-glass/60 px-6 py-10 text-center text-muted">
               {active === 'All'
-                ? 'No gallery items published yet. Add photos or videos in Admin → Media.'
-                : `No published items in “${active}” yet. Try “All” or upload under this category in Admin → Media.`}
+                ? 'Gallery photos and videos will appear here soon.'
+                : `Nothing in “${active}” yet. Try “All” to browse the full gallery.`}
             </p>
           ) : (
           <AnimatePresence mode="popLayout">
