@@ -2,7 +2,7 @@ import { requireOwnStudentId } from './requireAuth'
 import { supabase } from './supabase'
 import { isMissingTableError } from './supabaseErrors'
 
-export type PortalNotificationType = 'lesson' | 'assignment' | 'quiz' | 'invoice'
+export type PortalNotificationType = 'lesson' | 'assignment' | 'quiz' | 'invoice' | 'payment'
 
 export type PortalNotification = {
   id: string

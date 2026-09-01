@@ -53,7 +53,10 @@ export function DashboardLockedScreen({
         </ul>
 
         <div className="mt-8 flex flex-wrap justify-center gap-3">
-          <Button to="/contact">Contact studio to pay</Button>
+          <Button to="/dashboard/pay">Pay now</Button>
+          <Button to="/contact" variant="secondary">
+            Contact studio
+          </Button>
           <Button to="/" variant="secondary">
             Return to website
           </Button>

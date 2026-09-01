@@ -6,6 +6,7 @@ const DISPLAY_ORDER = [
   'drums',
   'piano',
   'saxophone',
+  'violin',
   'voice training',
 ]
 

@@ -9,6 +9,7 @@ export const INSTRUMENT_PHOTOS: Record<string, string> = {
   drums: local('drums.png'),
   piano: unsplash('1520523839897-bd0b52f945a0'),
   saxophone: local('saxophone.png'),
+  violin: unsplash('1612224435075-de8984113da6'),
   'voice training': local('voice-training.png'),
 }
 

@@ -5,18 +5,19 @@
 -- ═══════════════════════════════════════════════════════════════════
 
 
--- ── 1) INSTRUMENTS — only 4 active (Drums, Piano, Saxophone, Voice Training) ──
+-- ── 1) INSTRUMENTS — active offerings (Drums, Piano, Saxophone, Voice Training, Violin) ──
 
 update public.instruments
 set active = false
-where name not in ('Drums', 'Piano', 'Saxophone', 'Voice Training');
+where name not in ('Drums', 'Piano', 'Saxophone', 'Voice Training', 'Violin');
 
 insert into public.instruments (name, description, monthly_fee, active)
 values
   ('Drums', 'Time feel, kit technique, hand percussion, and locking with ensembles.', 300.00, true),
   ('Piano', 'Classical foundations to contemporary harmony and performance at the keys.', 350.00, true),
   ('Saxophone', 'Tone production, breath control, jazz phrasing, and ensemble skills.', 320.00, true),
-  ('Voice Training', 'Breath, tone, stage presence, and studio-ready delivery.', 320.00, true)
+  ('Voice Training', 'Breath, tone, stage presence, and studio-ready delivery.', 320.00, true),
+  ('Violin', 'Bow technique, intonation, repertoire, and ensemble skills.', 320.00, true)
 on conflict (name) do update set
   description = excluded.description,
   monthly_fee = excluded.monthly_fee,
@@ -818,3 +819,311 @@ $$;
 
 revoke all on function public.ensure_student_monthly_invoices(uuid) from public;
 grant execute on function public.ensure_student_monthly_invoices(uuid) to authenticated;
+
+
+-- ── 15) VIOLIN + INSTRUMENT PRICING — unique names + admin price edits ──
+
+create unique index if not exists instruments_name_key on public.instruments (name);
+
+insert into public.instruments (name, description, monthly_fee, active)
+values
+  ('Violin', 'Bow technique, intonation, repertoire, and ensemble skills.', 320.00, true)
+on conflict (name) do update set
+  description = excluded.description,
+  monthly_fee = excluded.monthly_fee,
+  active = true;
+
+update public.instruments
+set active = false
+where name not in ('Drums', 'Piano', 'Saxophone', 'Voice Training', 'Violin');
+
+
+-- ── 16) AUTH FIX — reliable sign-in after sign-up ──
+
+-- Check auth.users (not profiles) so login lookup matches Supabase credentials.
+create or replace function public.profile_exists_for_login(login_identifier text)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  resolved text;
+begin
+  resolved := lower(trim(login_identifier));
+  if resolved = 'admin' then
+    resolved := 'admin@themusicembassy.com';
+  end if;
+  return exists (
+    select 1 from auth.users where lower(email) = resolved
+  );
+end;
+$$;
+
+revoke all on function public.profile_exists_for_login(text) from public;
+grant execute on function public.profile_exists_for_login(text) to anon, authenticated;
+
+-- Store lowercase emails on profiles so they stay in sync with auth.users.
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  assigned_role text;
+begin
+  assigned_role := case
+    when lower(new.email) = 'admin@themusicembassy.com' then 'admin'
+    else 'student'
+  end;
+
+  insert into public.profiles (id, full_name, email, role, status)
+  values (
+    new.id,
+    coalesce(new.raw_user_meta_data->>'full_name', new.email),
+    lower(new.email),
+    assigned_role,
+    'approved'
+  )
+  on conflict (id) do update set
+    full_name = excluded.full_name,
+    email = excluded.email,
+    role = excluded.role,
+    status = 'approved';
+
+  return new;
+end;
+$$;
+
+
+-- ── 17) PAYMENT SETTINGS + STUDENT PAYMENT CLAIMS ──
+
+create table if not exists public.payment_settings (
+  id                   uuid primary key default '00000000-0000-0000-0000-000000000001'::uuid,
+  momo_number          text,
+  momo_name            text,
+  bank_name            text,
+  bank_account_name    text,
+  bank_account_number  text,
+  bank_branch          text,
+  instructions         text,
+  updated_at           timestamptz not null default now()
+);
+
+insert into public.payment_settings (id)
+values ('00000000-0000-0000-0000-000000000001'::uuid)
+on conflict (id) do nothing;
+
+alter table public.payment_settings enable row level security;
+
+drop policy if exists "Authenticated users can read payment settings" on public.payment_settings;
+create policy "Authenticated users can read payment settings"
+  on public.payment_settings for select
+  to authenticated
+  using (true);
+
+drop policy if exists "Admins can manage payment settings" on public.payment_settings;
+create policy "Admins can manage payment settings"
+  on public.payment_settings for all
+  using (public.is_admin())
+  with check (public.is_admin());
+
+create table if not exists public.payment_claims (
+  id                uuid primary key default gen_random_uuid(),
+  student_id        uuid not null references public.profiles(id) on delete cascade,
+  invoice_id        uuid not null references public.invoices(id) on delete cascade,
+  reference         text,
+  notes             text,
+  status            text not null default 'pending'
+                      check (status in ('pending', 'confirmed', 'rejected')),
+  submitted_at      timestamptz not null default now(),
+  reviewed_at       timestamptz,
+  reviewed_by       uuid references public.profiles(id),
+  rejection_reason  text,
+  created_at        timestamptz not null default now()
+);
+
+create unique index if not exists payment_claims_one_pending_per_invoice
+  on public.payment_claims (invoice_id)
+  where status = 'pending';
+
+alter table public.payment_claims enable row level security;
+
+drop policy if exists "Students can view own payment claims" on public.payment_claims;
+create policy "Students can view own payment claims"
+  on public.payment_claims for select
+  using (auth.uid() = student_id);
+
+drop policy if exists "Admins can manage payment claims" on public.payment_claims;
+create policy "Admins can manage payment claims"
+  on public.payment_claims for all
+  using (public.is_admin())
+  with check (public.is_admin());
+
+alter table public.portal_notifications
+  drop constraint if exists portal_notifications_type_check;
+
+alter table public.portal_notifications
+  add constraint portal_notifications_type_check
+  check (type in ('lesson', 'assignment', 'quiz', 'invoice', 'payment'));
+
+create or replace function public.submit_payment_claim(
+  p_invoice_id uuid,
+  p_reference text default null,
+  p_notes text default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  inv record;
+  claim_id uuid;
+  student_name text;
+  admin_row record;
+begin
+  if auth.uid() is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  select i.*, p.full_name
+  into inv
+  from public.invoices i
+  join public.profiles p on p.id = i.student_id
+  where i.id = p_invoice_id
+    and i.student_id = auth.uid()
+  for update;
+
+  if not found then
+    raise exception 'Invoice not found';
+  end if;
+
+  if inv.status not in ('pending', 'overdue') then
+    raise exception 'This invoice is already settled';
+  end if;
+
+  if exists (
+    select 1 from public.payment_claims
+    where invoice_id = p_invoice_id and status = 'pending'
+  ) then
+    raise exception 'A payment confirmation is already pending for this invoice';
+  end if;
+
+  insert into public.payment_claims (student_id, invoice_id, reference, notes)
+  values (auth.uid(), p_invoice_id, nullif(trim(p_reference), ''), nullif(trim(p_notes), ''))
+  returning id into claim_id;
+
+  student_name := inv.full_name;
+
+  for admin_row in
+    select id from public.profiles where role = 'admin'
+  loop
+    insert into public.portal_notifications (student_id, type, title, body)
+    values (
+      admin_row.id,
+      'payment',
+      'Payment submitted',
+      student_name || ' marked ' || inv.month || ' tuition as paid. Review in Finance → Pending payments.'
+    );
+  end loop;
+
+  return claim_id;
+end;
+$$;
+
+revoke all on function public.submit_payment_claim(uuid, text, text) from public;
+grant execute on function public.submit_payment_claim(uuid, text, text) to authenticated;
+
+create or replace function public.confirm_payment_claim(p_claim_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  claim record;
+begin
+  if not public.is_admin() then
+    raise exception 'Not authorized';
+  end if;
+
+  select pc.*, i.month, i.student_id as invoice_student_id
+  into claim
+  from public.payment_claims pc
+  join public.invoices i on i.id = pc.invoice_id
+  where pc.id = p_claim_id
+  for update;
+
+  if not found then
+    raise exception 'Payment claim not found';
+  end if;
+
+  if claim.status <> 'pending' then
+    raise exception 'This payment claim has already been reviewed';
+  end if;
+
+  update public.payment_claims
+  set
+    status = 'confirmed',
+    reviewed_at = now(),
+    reviewed_by = auth.uid(),
+    rejection_reason = null
+  where id = p_claim_id;
+
+  update public.invoices
+  set status = 'paid', paid_at = now()
+  where id = claim.invoice_id;
+
+  return jsonb_build_object('student_id', claim.invoice_student_id, 'month', claim.month);
+end;
+$$;
+
+revoke all on function public.confirm_payment_claim(uuid) from public;
+grant execute on function public.confirm_payment_claim(uuid) to authenticated;
+
+create or replace function public.reject_payment_claim(
+  p_claim_id uuid,
+  p_reason text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  claim record;
+begin
+  if not public.is_admin() then
+    raise exception 'Not authorized';
+  end if;
+
+  select pc.*, i.month, i.student_id as invoice_student_id
+  into claim
+  from public.payment_claims pc
+  join public.invoices i on i.id = pc.invoice_id
+  where pc.id = p_claim_id
+  for update;
+
+  if not found then
+    raise exception 'Payment claim not found';
+  end if;
+
+  if claim.status <> 'pending' then
+    raise exception 'This payment claim has already been reviewed';
+  end if;
+
+  update public.payment_claims
+  set
+    status = 'rejected',
+    reviewed_at = now(),
+    reviewed_by = auth.uid(),
+    rejection_reason = nullif(trim(p_reason), '')
+  where id = p_claim_id;
+
+  return jsonb_build_object('student_id', claim.invoice_student_id, 'month', claim.month);
+end;
+$$;
+
+revoke all on function public.reject_payment_claim(uuid, text) from public;
+grant execute on function public.reject_payment_claim(uuid, text) to authenticated;

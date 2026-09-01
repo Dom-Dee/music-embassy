@@ -155,11 +155,11 @@ export function OwingNotificationModal({
               ) : null}
 
               <div className="flex flex-wrap gap-3 pt-1">
-                <Button type="button" onClick={onClose} className="flex-1">
-                  Understood
+                <Button type="button" to="/dashboard/pay" className="flex-1">
+                  Pay now
                 </Button>
-                <Button to="/contact" variant="secondary" className="flex-1">
-                  Contact studio
+                <Button type="button" onClick={onClose} variant="secondary" className="flex-1">
+                  Understood
                 </Button>
               </div>
             </div>

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
+import { registerAccount } from '../lib/authSignUp'
 import { signInWithPreciseErrors } from '../lib/signIn'
 import { supabase } from '../lib/supabase'
 import { AuthContext } from './authContext'
@@ -36,6 +37,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true
 
+    void supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
+      if (!mounted) return
+      setSession(initialSession)
+      setUser(initialSession?.user ?? null)
+
+      if (initialSession?.user) {
+        void fetchProfile(initialSession.user.id).then((p) => {
+          if (!mounted) return
+          setProfile(p)
+          setLoading(false)
+        })
+      } else {
+        setLoading(false)
+      }
+    })
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, nextSession) => {
@@ -47,11 +64,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         void fetchProfile(nextUser.id).then((p) => {
           if (!mounted) return
           setProfile(p)
-          setLoading(false)
         })
       } else {
         setProfile(null)
-        setLoading(false)
       }
     })
 
@@ -63,12 +78,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = useCallback(
     async (fullName: string, email: string, password: string) => {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { data: { full_name: fullName } },
-      })
-      if (error) throw new Error(error.message)
+      const outcome = await registerAccount(fullName, email, password)
+
+      if (outcome.kind === 'existing_email') {
+        throw new Error('An account with this email already exists. Sign in instead.')
+      }
+
+      if (outcome.kind === 'confirm_email') {
+        throw new Error(
+          'Account created. Check your email to confirm your address, then sign in.',
+        )
+      }
     },
     [],
   )
@@ -78,7 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const signOut = useCallback(async () => {
-    const { error } = await supabase.auth.signOut()
+    const { error } = await supabase.auth.signOut({ scope: 'global' })
     if (error) throw new Error(error.message)
     setSession(null)
     setUser(null)

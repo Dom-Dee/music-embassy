@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../auth/useAuth'
 import { resolveLoginPath } from '../../lib/authRouting'
+import { registerAccount } from '../../lib/authSignUp'
 import { AuthActionTray } from '../../components/auth/AuthActionTray'
 import { AuthAlert } from '../../components/auth/AuthAlert'
 import { Button } from '../../components/ui/Button'
@@ -28,28 +29,30 @@ export function SignUp() {
     setLoading(true)
 
     try {
-      const { data, error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { data: { full_name: fullName } },
-      })
+      const outcome = await registerAccount(fullName, email, password)
 
-      if (signUpError) throw signUpError
+      if (outcome.kind === 'existing_email') {
+        setError('An account with this email already exists. Sign in instead.')
+        return
+      }
 
-      if (data.session && data.user) {
-        await refreshProfile()
+      if (outcome.kind === 'confirm_email') {
+        setSuccess('Account created! Check your email to confirm, then sign in.')
+        return
+      }
 
-        const { data: p } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', data.user.id)
-          .single()
+      await refreshProfile()
 
-        if (p) {
-          const path = await resolveLoginPath(p)
-          navigate(path, { replace: true })
-          return
-        }
+      const { data: p } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', outcome.user.id)
+        .single()
+
+      if (p) {
+        const path = await resolveLoginPath(p)
+        navigate(path, { replace: true })
+        return
       }
 
       setSuccess('Account created! Check your email to confirm, then sign in.')

@@ -7,7 +7,7 @@ describe('resolveLoginEmail', () => {
     expect(resolveLoginEmail(' Admin ')).toBe(ADMIN_EMAIL)
   })
 
-  it('returns trimmed email unchanged', () => {
-    expect(resolveLoginEmail('  student@example.com  ')).toBe('student@example.com')
+  it('returns trimmed lowercase email for regular accounts', () => {
+    expect(resolveLoginEmail('  Student@Example.com  ')).toBe('student@example.com')
   })
 })

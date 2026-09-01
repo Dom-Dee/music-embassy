@@ -2,7 +2,7 @@ import { Outlet, useLocation } from 'react-router-dom'
 import { useScrollToTop } from '../../hooks/useScrollToTop'
 import { portalLayoutKey } from '../../lib/motion'
 import { useAuth } from '../../auth/useAuth'
-import { isApprovedStudent } from '../../auth/types'
+import { isApprovedAdmin, isApprovedStudent } from '../../auth/types'
 import { NotificationBell } from '../dashboard/NotificationBell'
 import { WebsiteReturnTab } from '../layout/WebsiteReturnTab'
 import { SiteBrandLink, SiteHeaderInner } from '../layout/SiteBrandLink'
@@ -14,7 +14,7 @@ export function AppLayout() {
   const { profile } = useAuth()
   const { pathname } = useLocation()
   useScrollToTop()
-  const isStudent = isApprovedStudent(profile)
+  const showNotifications = profile && (isApprovedStudent(profile) || isApprovedAdmin(profile))
 
   return (
     <>
@@ -22,7 +22,7 @@ export function AppLayout() {
         <SiteHeaderInner>
           <SiteBrandLink />
           <nav className="relative z-20 ml-auto mr-[3.25rem] flex shrink-0 items-center gap-2 md:mr-[3.5rem] md:gap-3">
-            {isStudent && profile ? <NotificationBell studentId={profile.id} /> : null}
+            {showNotifications ? <NotificationBell studentId={profile!.id} /> : null}
           </nav>
         </SiteHeaderInner>
         <div className="navbar-profile-slot">

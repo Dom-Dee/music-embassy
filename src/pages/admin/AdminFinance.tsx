@@ -22,7 +22,13 @@ import {
   markInvoicePaid,
   markInvoiceUnpaid,
 } from '../../lib/adminData'
+import {
+  confirmPaymentClaim,
+  fetchAdminPaymentClaims,
+  rejectPaymentClaim,
+} from '../../lib/paymentClaims'
 import type { AdminEnrollment, AdminInvoiceRow } from '../../types/admin'
+import type { AdminPaymentClaimRow } from '../../types/payments'
 import { formatCurrency, formatDate, isInvoiceOwing } from '../../types/student'
 
 type FinanceTab = 'unpaid' | 'paid'
@@ -31,6 +37,7 @@ export function AdminFinance() {
   const { notify } = useAdminToast()
   const [enrollments, setEnrollments] = useState<AdminEnrollment[]>([])
   const [invoices, setInvoices] = useState<AdminInvoiceRow[]>([])
+  const [paymentClaims, setPaymentClaims] = useState<AdminPaymentClaimRow[]>([])
   const [tab, setTab] = useState<FinanceTab>('unpaid')
   const [enrollmentId, setEnrollmentId] = useState('')
   const [month, setMonth] = useState('')
@@ -45,12 +52,14 @@ export function AdminFinance() {
   const [error, setError] = useState<string | null>(null)
 
   async function load() {
-    const [enr, inv] = await Promise.all([
+    const [enr, inv, claims] = await Promise.all([
       fetchAdminEnrollments(),
       fetchAdminInvoices(),
+      fetchAdminPaymentClaims(),
     ])
     setEnrollments(enr)
     setInvoices(inv)
+    setPaymentClaims(claims)
   }
 
   useEffect(() => {
@@ -76,6 +85,38 @@ export function AdminFinance() {
   const visible = tab === 'unpaid' ? unpaid : paid
   const unpaidTotal = unpaid.reduce((sum, inv) => sum + Number(inv.amount), 0)
   const paidTotal = paid.reduce((sum, inv) => sum + Number(inv.amount), 0)
+  const pendingClaims = useMemo(
+    () => paymentClaims.filter((claim) => claim.status === 'pending'),
+    [paymentClaims],
+  )
+
+  async function handleConfirmClaim(claimId: string) {
+    setActingId(claimId)
+    setError(null)
+    try {
+      await confirmPaymentClaim(claimId)
+      notify('Payment confirmed and invoice marked paid.')
+      await load()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not confirm payment')
+    } finally {
+      setActingId(null)
+    }
+  }
+
+  async function handleRejectClaim(claimId: string) {
+    setActingId(claimId)
+    setError(null)
+    try {
+      await rejectPaymentClaim(claimId)
+      notify('Payment submission rejected.')
+      await load()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not reject payment')
+    } finally {
+      setActingId(null)
+    }
+  }
 
   async function handleCreateInvoice(e: React.FormEvent) {
     e.preventDefault()
@@ -179,6 +220,64 @@ export function AdminFinance() {
           <p className="mt-2 font-display text-3xl text-fg">{formatCurrency(paidTotal)}</p>
         </AdminCard>
       </div>
+
+      {pendingClaims.length > 0 ? (
+        <AdminCard padding="none" className="border-gold/25">
+          <AdminCardBody className="border-b border-border">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gold">
+              Pending payments
+            </p>
+            <p className="mt-1 text-sm text-muted">
+              Students marked these invoices as paid. Confirm once you verify the transfer.
+            </p>
+          </AdminCardBody>
+          <ul className="divide-y divide-border">
+            {pendingClaims.map((claim) => (
+              <li
+                key={claim.id}
+                className="flex flex-wrap items-center justify-between gap-4 px-6 py-4 md:px-7"
+              >
+                <div>
+                  <p className="font-medium text-fg">
+                    {claim.student?.full_name ?? 'Student'} · {claim.invoice?.month ?? 'Invoice'}
+                  </p>
+                  <p className="mt-1 text-sm text-muted">
+                    {claim.invoice
+                      ? formatCurrency(Number(claim.invoice.amount), claim.invoice.currency)
+                      : 'Amount unavailable'}
+                    {claim.reference ? ` · Ref: ${claim.reference}` : ''}
+                  </p>
+                  {claim.notes ? (
+                    <p className="mt-2 text-sm text-muted">{claim.notes}</p>
+                  ) : null}
+                  <p className="mt-1 text-xs text-muted">
+                    Submitted {formatDate(claim.submitted_at.slice(0, 10))}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    className="!px-4 !py-2 text-sm"
+                    disabled={actingId === claim.id}
+                    onClick={() => void handleConfirmClaim(claim.id)}
+                  >
+                    {actingId === claim.id ? 'Saving…' : 'Confirm payment'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="!px-4 !py-2 text-sm"
+                    disabled={actingId === claim.id}
+                    onClick={() => void handleRejectClaim(claim.id)}
+                  >
+                    Reject
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </AdminCard>
+      ) : null}
 
       <AdminSplitLayout>
         <div className="w-full space-y-6 self-start">

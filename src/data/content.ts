@@ -117,6 +117,12 @@ export const lessonTypes = [
     image: getInstrumentImageUrl('Saxophone'),
   },
   {
+    title: 'Violin',
+    description:
+      'Bow technique, intonation, classical and contemporary repertoire, and ensemble skills.',
+    image: getInstrumentImageUrl('Violin'),
+  },
+  {
     title: 'Voice Training',
     description:
       'Breath, tone, stage presence, and studio ready delivery. Find the power in your voice.',

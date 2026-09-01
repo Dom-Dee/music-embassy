@@ -13,6 +13,7 @@ vi.mock('./supabase', () => ({
 }))
 
 import {
+  SIGN_IN_EMAIL_NOT_CONFIRMED,
   SIGN_IN_INVALID_PASSWORD,
   SIGN_IN_USER_NOT_FOUND,
   signInWithPreciseErrors,
@@ -69,5 +70,16 @@ describe('signInWithPreciseErrors', () => {
     expect(mockRpc).toHaveBeenCalledWith('profile_exists_for_login', {
       login_identifier: 'admin',
     })
+  })
+
+  it('reports when email confirmation is still required', async () => {
+    mockRpc.mockResolvedValue({ data: true, error: null })
+    mockSignInWithPassword.mockResolvedValue({
+      error: { message: 'Email not confirmed' },
+    })
+
+    await expect(
+      signInWithPreciseErrors('student@example.com', 'secret'),
+    ).rejects.toThrow(SIGN_IN_EMAIL_NOT_CONFIRMED)
   })
 })

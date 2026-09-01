@@ -24,6 +24,9 @@ const SignUp = lazy(() => import('./pages/auth/SignUp').then((m) => ({ default: 
 const ChooseInstruments = lazy(() =>
   import('./pages/dashboard/ChooseInstruments').then((m) => ({ default: m.ChooseInstruments })),
 )
+const StudentPay = lazy(() =>
+  import('./pages/dashboard/StudentPay').then((m) => ({ default: m.StudentPay })),
+)
 const StudentDashboard = lazy(() =>
   import('./pages/dashboard/StudentDashboard').then((m) => ({ default: m.StudentDashboard })),
 )
@@ -47,6 +50,9 @@ const AdminFinance = lazy(() =>
 )
 const AdminMedia = lazy(() =>
   import('./pages/admin/AdminMedia').then((m) => ({ default: m.AdminMedia })),
+)
+const AdminInstruments = lazy(() =>
+  import('./pages/admin/AdminInstruments').then((m) => ({ default: m.AdminInstruments })),
 )
 
 export default function App() {
@@ -76,6 +82,7 @@ export default function App() {
               <Route element={<ProtectedRoute requireStudent />}>
                 <Route element={<AppLayout />}>
                   <Route path="dashboard" element={<StudentDashboard />} />
+                  <Route path="dashboard/pay" element={<StudentPay />} />
                   <Route path="choose-instruments" element={<ChooseInstruments />} />
                 </Route>
               </Route>
@@ -89,6 +96,7 @@ export default function App() {
                     <Route path="assignments" element={<AdminAssignments />} />
                     <Route path="quizzes" element={<AdminQuizzes />} />
                     <Route path="finance" element={<AdminFinance />} />
+                    <Route path="instruments" element={<AdminInstruments />} />
                     <Route path="media" element={<AdminMedia />} />
                   </Route>
                 </Route>

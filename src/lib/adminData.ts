@@ -557,3 +557,36 @@ export async function generateMonthlyInvoices(
 
   return { created, skipped }
 }
+
+export async function fetchAdminInstruments() {
+  await requireAdminProfile()
+
+  const { data, error } = await supabase
+    .from('instruments')
+    .select('id, name, description, monthly_fee, active')
+    .order('name')
+
+  if (error) throw new Error(error.message)
+  return data ?? []
+}
+
+export type InstrumentUpdateInput = {
+  description?: string | null
+  monthly_fee: number
+  active: boolean
+}
+
+export async function updateInstrument(id: string, input: InstrumentUpdateInput) {
+  await requireAdminProfile()
+
+  const { error } = await supabase
+    .from('instruments')
+    .update({
+      description: input.description?.trim() || null,
+      monthly_fee: input.monthly_fee,
+      active: input.active,
+    })
+    .eq('id', id)
+
+  if (error) throw new Error(error.message)
+}
