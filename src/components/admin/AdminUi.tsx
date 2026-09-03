@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import type { AdminEnrollment, AudienceMode, InstrumentRoster } from '../../types/admin'
 import { FormField, formInputClass } from '../ui/FormField'
 import { EnrollmentSelect } from './EnrollmentSelect'
@@ -194,13 +195,15 @@ export function AdminStatCell({
   label,
   value,
   emphasis,
+  to,
 }: {
   label: string
   value: string
   emphasis?: boolean
+  to?: string
 }) {
-  return (
-    <div className="px-6 py-5 md:px-7 md:py-6">
+  const content = (
+    <>
       <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted">
         {label}
       </p>
@@ -209,8 +212,21 @@ export function AdminStatCell({
       >
         {value}
       </p>
-    </div>
+    </>
   )
+
+  if (to) {
+    return (
+      <Link
+        to={to}
+        className="block px-6 py-5 transition-colors hover:bg-page/30 md:px-7 md:py-6"
+      >
+        {content}
+      </Link>
+    )
+  }
+
+  return <div className="px-6 py-5 md:px-7 md:py-6">{content}</div>
 }
 
 type AudiencePickerProps = {

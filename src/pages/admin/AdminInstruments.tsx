@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   AdminAlert,
   AdminFormPanel,
@@ -9,15 +9,21 @@ import {
   AdminSplitLayout,
 } from '../../components/admin/AdminUi'
 import { useAdminToast } from '../../components/admin/AdminToastProvider'
+import { FileUploadField } from '../../components/admin/FileUploadField'
 import { Button } from '../../components/ui/Button'
 import { FormField, formInputClass } from '../../components/ui/FormField'
-import { fetchAdminInstruments, updateInstrument } from '../../lib/adminData'
+import {
+  createInstrument,
+  fetchAdminInstruments,
+  updateInstrument,
+} from '../../lib/adminData'
 import {
   fetchPaymentSettings,
   paymentSettingsConfigured,
   updatePaymentSettings,
 } from '../../lib/paymentSettings'
 import { getInstrumentImageUrl } from '../../lib/instrumentImages'
+import { uploadPortalFiles } from '../../lib/uploadPortalFile'
 import type { Instrument } from '../../types/student'
 import type { PaymentSettings } from '../../types/payments'
 import { formatCurrency } from '../../types/student'
@@ -28,10 +34,14 @@ export function AdminInstruments() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [creating, setCreating] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [name, setName] = useState('')
   const [monthlyFee, setMonthlyFee] = useState('')
   const [description, setDescription] = useState('')
   const [active, setActive] = useState(true)
+  const [imageUrl, setImageUrl] = useState<string | null>(null)
+  const [imageFiles, setImageFiles] = useState<File[]>([])
   const [paymentSettings, setPaymentSettings] = useState<PaymentSettings | null>(null)
   const [momoNumber, setMomoNumber] = useState('')
   const [momoName, setMomoName] = useState('')
@@ -70,23 +80,49 @@ export function AdminInstruments() {
     })()
   }, [])
 
-  function startEdit(item: Instrument) {
-    setEditingId(item.id)
-    setMonthlyFee(String(item.monthly_fee))
-    setDescription(item.description ?? '')
-    setActive(item.active)
-  }
-
   function resetForm() {
+    setCreating(false)
     setEditingId(null)
+    setName('')
     setMonthlyFee('')
     setDescription('')
     setActive(true)
+    setImageUrl(null)
+    setImageFiles([])
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  function startCreate() {
+    resetForm()
+    setCreating(true)
+  }
+
+  function startEdit(item: Instrument) {
+    setCreating(false)
+    setEditingId(item.id)
+    setName(item.name)
+    setMonthlyFee(String(item.monthly_fee))
+    setDescription(item.description ?? '')
+    setActive(item.active)
+    setImageUrl(item.image_url ?? null)
+    setImageFiles([])
+  }
+
+  async function resolveImageUrl(): Promise<string | null> {
+    if (imageFiles.length > 0) {
+      const [uploaded] = await uploadPortalFiles(imageFiles.slice(0, 1), 'instruments')
+      return uploaded
+    }
+    return imageUrl
+  }
+
+  async function handleInstrumentSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!editingId) return
+
+    const trimmedName = name.trim()
+    if (!trimmedName) {
+      setError('Enter an instrument name.')
+      return
+    }
 
     const fee = Number(monthlyFee)
     if (!Number.isFinite(fee) || fee < 0) {
@@ -98,22 +134,31 @@ export function AdminInstruments() {
     setError(null)
 
     try {
-      await updateInstrument(editingId, {
+      const resolvedImageUrl = await resolveImageUrl()
+      const payload = {
+        name: trimmedName,
         description,
         monthly_fee: fee,
         active,
-      })
-      notify('Instrument updated.')
+        image_url: resolvedImageUrl,
+      }
+
+      if (creating) {
+        await createInstrument(payload)
+        notify('Instrument added to the catalog.')
+      } else if (editingId) {
+        await updateInstrument(editingId, payload)
+        notify('Instrument updated.')
+      }
+
       resetForm()
       await load()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not update instrument')
+      setError(err instanceof Error ? err.message : 'Could not save instrument')
     } finally {
       setSubmitting(false)
     }
   }
-
-  const editing = instruments.find((item) => item.id === editingId) ?? null
 
   async function handlePaymentSettingsSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -139,12 +184,27 @@ export function AdminInstruments() {
     }
   }
 
+  const formOpen = creating || editingId !== null
+  const filePreviewUrl = useMemo(() => {
+    if (imageFiles.length === 0) return null
+    return URL.createObjectURL(imageFiles[0])
+  }, [imageFiles])
+
+  useEffect(() => {
+    return () => {
+      if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl)
+    }
+  }, [filePreviewUrl])
+
+  const previewImage = filePreviewUrl
+    ?? getInstrumentImageUrl(name || 'Instrument', imageUrl)
+
   return (
     <AdminPage>
       <AdminPageIntro
         eyebrow="Enrollment"
-        title="Instruments & pricing"
-        description="Set tuition fees, payment instructions, and control which instruments students can enroll in."
+        title="Instrument catalog"
+        description="Add instruments with tuition fees and photos, then control which ones students can enroll in."
       />
 
       {error ? <AdminAlert tone="error">{error}</AdminAlert> : null}
@@ -230,9 +290,21 @@ export function AdminInstruments() {
       </AdminFormPanel>
 
       <AdminSplitLayout>
-        <AdminFormPanel title={editing ? `Edit ${editing.name}` : 'Select an instrument'}>
-          {editing ? (
-            <form className="space-y-4" onSubmit={(e) => void handleSubmit(e)}>
+        <AdminFormPanel
+          title={creating ? 'Add instrument' : editingId ? `Edit ${name}` : 'Catalog item'}
+        >
+          {formOpen ? (
+            <form className="space-y-4" onSubmit={(e) => void handleInstrumentSubmit(e)}>
+              <FormField label="Instrument name" id="instrument-name" required>
+                <input
+                  id="instrument-name"
+                  className={formInputClass}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. Violin"
+                  required
+                />
+              </FormField>
               <FormField label="Monthly fee (GHS)" id="instrument-fee" required>
                 <input
                   id="instrument-fee"
@@ -251,8 +323,25 @@ export function AdminInstruments() {
                   className={`${formInputClass} min-h-28`}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
+                  placeholder="What students will learn on this instrument."
                 />
               </FormField>
+              <FileUploadField
+                label="Catalog photo"
+                files={imageFiles}
+                onChange={setImageFiles}
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                multiple={false}
+              />
+              {(imageUrl || imageFiles.length > 0) && (
+                <div className="overflow-hidden rounded-xl border border-border">
+                  <img
+                    src={previewImage}
+                    alt=""
+                    className="aspect-[5/4] w-full object-cover"
+                  />
+                </div>
+              )}
               <label className="flex items-center gap-2 text-sm text-fg">
                 <input
                   type="checkbox"
@@ -262,12 +351,16 @@ export function AdminInstruments() {
                 Available for student enrollment
               </label>
               <p className="text-xs text-muted">
-                Unchecking hides this instrument from new enrollments. Existing students keep their
-                active enrolments.
+                Unchecking hides this instrument from new enrollments. Existing students keep
+                their active enrolments.
               </p>
               <div className="flex flex-wrap gap-3 pt-2">
                 <Button type="submit" disabled={submitting}>
-                  Save changes
+                  {submitting
+                    ? 'Saving…'
+                    : creating
+                      ? 'Add instrument'
+                      : 'Save changes'}
                 </Button>
                 <Button type="button" variant="secondary" onClick={resetForm}>
                   Cancel
@@ -275,16 +368,22 @@ export function AdminInstruments() {
               </div>
             </form>
           ) : (
-            <p className="text-sm text-muted">
-              Choose an instrument on the right to update its monthly fee or enrollment status.
-            </p>
+            <div className="space-y-4">
+              <p className="text-sm text-muted">
+                Add a new instrument to the catalog or select one on the right to edit its fee,
+                photo, or enrollment status.
+              </p>
+              <Button type="button" onClick={startCreate}>
+                Add instrument
+              </Button>
+            </div>
           )}
         </AdminFormPanel>
 
         <AdminListPanel
           eyebrow="Catalog"
           title="All instruments"
-          empty={!loading && instruments.length === 0 ? 'No instruments found.' : undefined}
+          empty={!loading && instruments.length === 0 ? 'No instruments yet.' : undefined}
         >
           {instruments.map((item) => (
             <AdminRecordCard
@@ -304,7 +403,7 @@ export function AdminInstruments() {
               body={
                 <div className="h-20 w-28 overflow-hidden rounded-lg border border-border">
                   <img
-                    src={getInstrumentImageUrl(item.name)}
+                    src={getInstrumentImageUrl(item.name, item.image_url)}
                     alt=""
                     className="h-full w-full object-cover"
                   />

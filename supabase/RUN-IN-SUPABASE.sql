@@ -1127,3 +1127,17 @@ $$;
 
 revoke all on function public.reject_payment_claim(uuid, text) from public;
 grant execute on function public.reject_payment_claim(uuid, text) to authenticated;
+
+
+-- ── 18) INSTRUMENT CATALOG — admin-managed images ──
+
+alter table public.instruments
+  add column if not exists image_url text;
+
+drop policy if exists "Public read instrument catalog images" on storage.objects;
+create policy "Public read instrument catalog images"
+  on storage.objects for select to public
+  using (
+    bucket_id = 'portal-files'
+    and (storage.foldername(name))[1] = 'instruments'
+  );

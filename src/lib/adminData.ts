@@ -563,30 +563,66 @@ export async function fetchAdminInstruments() {
 
   const { data, error } = await supabase
     .from('instruments')
-    .select('id, name, description, monthly_fee, active')
+    .select('id, name, description, monthly_fee, active, image_url')
     .order('name')
 
   if (error) throw new Error(error.message)
   return data ?? []
 }
 
-export type InstrumentUpdateInput = {
+export type InstrumentInput = {
+  name: string
   description?: string | null
   monthly_fee: number
   active: boolean
+  image_url?: string | null
 }
+
+export async function createInstrument(input: InstrumentInput) {
+  await requireAdminProfile()
+
+  const name = input.name.trim()
+  if (!name) throw new Error('Instrument name is required.')
+
+  const { error } = await supabase.from('instruments').insert({
+    name,
+    description: input.description?.trim() || null,
+    monthly_fee: input.monthly_fee,
+    active: input.active,
+    image_url: input.image_url?.trim() || null,
+  })
+
+  if (error) {
+    if (error.message.includes('instruments_name_key')) {
+      throw new Error('An instrument with this name already exists.')
+    }
+    throw new Error(error.message)
+  }
+}
+
+export type InstrumentUpdateInput = InstrumentInput
 
 export async function updateInstrument(id: string, input: InstrumentUpdateInput) {
   await requireAdminProfile()
 
+  const name = input.name.trim()
+  if (!name) throw new Error('Instrument name is required.')
+
   const { error } = await supabase
     .from('instruments')
     .update({
+      name,
       description: input.description?.trim() || null,
       monthly_fee: input.monthly_fee,
       active: input.active,
+      image_url: input.image_url?.trim() || null,
     })
     .eq('id', id)
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    if (error.message.includes('instruments_name_key')) {
+      throw new Error('An instrument with this name already exists.')
+    }
+    throw new Error(error.message)
+  }
 }

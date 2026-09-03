@@ -81,6 +81,7 @@ export function AdminOverview() {
       label: 'Outstanding',
       value: formatCurrency(data.totalOwing),
       emphasis: data.totalOwing > 0,
+      to: '/admin/finance',
     },
     { label: 'This week', value: String(data.upcomingLessons) },
   ]

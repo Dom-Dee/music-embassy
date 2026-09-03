@@ -32,7 +32,7 @@ export async function fetchActiveInstruments(): Promise<Instrument[]> {
   // works even before the optional DB column is added in Supabase.
   const { data, error } = await supabase
     .from('instruments')
-    .select('id, name, description, monthly_fee, active')
+    .select('id, name, description, monthly_fee, active, image_url')
     .eq('active', true)
 
   if (error) throw new Error(error.message)

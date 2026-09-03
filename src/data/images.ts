@@ -17,8 +17,8 @@ export const images = {
     'https://images.unsplash.com/photo-1510915361894-db8b60106cb1?auto=format&fit=crop&w=1600&q=85',
   teaching:
     'https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=1600&q=85',
-  violin:
-    'https://images.unsplash.com/photo-1465821185615-80befc40a7d6?auto=format&fit=crop&w=1600&q=85',
+  violin: local('/instruments/violin.jpg'),
+  signInHero: local('/auth/sign-in-hero.jpg'),
   drums:
     'https://images.unsplash.com/photo-1519892300165-cb5582e4c4d7?auto=format&fit=crop&w=1600&q=85',
   crowd:

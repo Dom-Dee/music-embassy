@@ -23,7 +23,7 @@ export function AuthLayout() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.28, ease: PREMIUM_EASE }}
-          className="site-main-offset site-safe-bottom relative z-10 flex min-h-svh items-center justify-center px-6 pb-12"
+          className="site-main-offset site-safe-bottom relative z-10 flex min-h-svh items-center justify-center overflow-x-hidden px-4 pb-10 sm:px-6 sm:pb-12"
         >
           <Outlet />
         </motion.main>

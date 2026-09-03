@@ -14,10 +14,12 @@ export type UploadFolder =
   | 'assignment-submissions'
   | 'events'
   | 'gallery'
+  | 'instruments'
 
 const FOLDER_MAX_BYTES: Partial<Record<UploadFolder, number>> = {
   events: 100 * 1024 * 1024,
   gallery: 100 * 1024 * 1024,
+  instruments: 10 * 1024 * 1024,
 }
 
 export async function uploadPortalFiles(

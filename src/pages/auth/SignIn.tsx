@@ -11,8 +11,7 @@ import { images } from '../../data/images'
 import { resolveLoginPath } from '../../lib/authRouting'
 import { supabase } from '../../lib/supabase'
 
-const panelImages = [images.piano, images.guitar, images.drums, images.singer]
-const heroImage = panelImages[Math.floor(Math.random() * panelImages.length)]
+const heroImage = images.signInHero
 
 export function SignIn() {
   const { signIn } = useAuth()
@@ -70,8 +69,8 @@ export function SignIn() {
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
       className="glass-wood-surface liquid-panel w-full max-w-4xl overflow-hidden rounded-2xl border border-border shadow-[var(--shadow-card-hover)]"
     >
-      <div className="grid lg:grid-cols-[1fr_1.15fr]">
-        <div className="relative hidden overflow-hidden bg-surface lg:block">
+      <div className="grid min-h-0 md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
+        <div className="relative hidden min-h-[18rem] overflow-hidden bg-surface md:block md:min-h-[32rem]">
           <motion.img
             src={heroImage}
             alt=""
@@ -94,7 +93,7 @@ export function SignIn() {
           </div>
         </div>
 
-        <div className="bg-glass px-8 py-10 backdrop-blur-xl md:px-10 md:py-12">
+        <div className="min-w-0 bg-glass px-6 py-8 backdrop-blur-xl sm:px-8 sm:py-10 md:px-10 md:py-12">
           <p className="text-xs font-semibold uppercase tracking-[0.28em] text-gold/85">
             Welcome back
           </p>

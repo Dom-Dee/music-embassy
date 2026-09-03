@@ -13,7 +13,7 @@ const tabs: { to: string; label: string; end?: boolean }[] = [
   { to: '/admin/assignments', label: 'Assignments' },
   { to: '/admin/quizzes', label: 'Quizzes' },
   { to: '/admin/finance', label: 'Finance' },
-  { to: '/admin/instruments', label: 'Pricing' },
+  { to: '/admin/instruments', label: 'Catalog' },
   { to: '/admin/media', label: 'Media' },
 ]
 

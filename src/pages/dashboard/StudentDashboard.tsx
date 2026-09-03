@@ -53,7 +53,6 @@ export function StudentDashboard() {
   const [dashboardFocus, setDashboardFocus] = useState<DashboardFocus | null>(null)
   const [instrumentFilter, setInstrumentFilter] = useState<string | null>(null)
   const [emailSent, setEmailSent] = useState(false)
-  const [emailError, setEmailError] = useState<string | null>(null)
 
   const {
     instrumentPaths,
@@ -91,7 +90,9 @@ export function StudentDashboard() {
         owingInvoices: invoices,
       })
       setEmailSent(result.sent)
-      setEmailError(result.error ?? null)
+      if (result.error) {
+        console.warn('Payment reminder email failed:', result.error)
+      }
     })()
     // Intentionally keyed on unpaidIds so the reminder runs once per outstanding set.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- unpaidIds captures invoice changes
@@ -343,7 +344,6 @@ export function StudentDashboard() {
         unpaidInvoices={unpaidInvoices}
         nowMs={nowMs}
         emailSent={emailSent}
-        emailError={emailError}
       />
     </div>
   )
